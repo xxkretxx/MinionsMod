@@ -38,7 +38,7 @@
   "gui.buildminions.mat_tooltip": "%s – delivered %s / %s",
   "gui.buildminions.deposit": "Deposit from Inventory",
   "gui.buildminions.materials_total": "Materials: %s / %s",
-  "gui.buildminions.creative": "Creative: materials not required",
+  "gui.buildminions.creative": "Creative mode: no materials needed",
   "gui.buildminions.accept": "ACCEPT BUILD",
   "gui.buildminions.ready": "All materials delivered",
   "gui.buildminions.missing": "%s items missing",
@@ -91,7 +91,7 @@
   "gui.buildminions.tab.workshop": "Workshop",
   "gui.buildminions.phase.crafting": "Crafting",
   "gui.buildminions.no_workstation": "Place a Minion Workstation within 8 blocks of the minion. It will craft, smelt and cut missing materials from the raw ones you give it (logs → planks → stairs, cobbled deepslate → deepslate...).",
-  "gui.buildminions.workstation_recipe": "Recipe: iron ingots, crafting table, Minion Core, furnace, planks",
+  "gui.buildminions.workstation_recipe": "Recipe: iron ingots, crafting table, Minion Core, furnace and planks",
   "gui.buildminions.can_craft": "Can make now",
   "gui.buildminions.nothing_craftable": "Nothing to craft yet. Deposit raw materials (logs, stone, cobbled deepslate...) and they will show up here.",
   "gui.buildminions.queue": "Queue",
@@ -101,5 +101,6 @@
   "gui.buildminions.clear_queue": "Clear Queue",
   "gui.buildminions.deposit_raw": "Deposit Items",
   "gui.buildminions.crafting": "Working at the workstation...",
-  "message.buildminions.nothing_to_craft": "§7Nothing can be crafted from the materials the minion has."
+  "message.buildminions.nothing_to_craft": "§7Nothing can be crafted from the materials the minion has.",
+  "gui.buildminions.creative_short": "Creative: free"
 }

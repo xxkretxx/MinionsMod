@@ -289,10 +289,10 @@ public class MinionScreen extends Screen {
         actionButton(g, mx, my, Component.translatable("gui.buildminions.deposit"), left + 14, top + 176, 140, 20, collecting && !state.creative(),
                 () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.DEPOSIT)));
         int need = needTotal(), have = need - missing();
-        g.text(font, Component.translatable("gui.buildminions.materials_total", Ui.num(have), Ui.num(need)), left + 162, top + 176, Ui.TEXT);
+        if (state.creative()) g.text(font, Component.translatable("gui.buildminions.creative_short"), left + 162, top + 176, Ui.YELLOW);
+        else g.text(font, Component.translatable("gui.buildminions.materials_total", Ui.num(have), Ui.num(need)), left + 162, top + 176, Ui.TEXT);
         Ui.progress(g, left + 162, top + 187, W - 176, 8, need == 0 ? 1f : have / (float) need, missing() == 0 ? Ui.PROGRESS_FILL : Ui.PROGRESS_BLUE);
-        if (state.creative())
-            g.text(font, Component.translatable("gui.buildminions.creative"), left + 162, top + 166, Ui.YELLOW);
+
     }
 
     // ---------------------------------------------------------------- page 3: workshop
@@ -306,14 +306,17 @@ public class MinionScreen extends Screen {
             for (var line : font.split(Component.translatable("gui.buildminions.no_workstation"), W - 60)) {
                 g.text(font, line, left + W / 2 - font.width(line) / 2, y, Ui.TEXT); y += 11;
             }
-            g.centeredText(font, Component.translatable("gui.buildminions.workstation_recipe"), left + W / 2, top + 150, Ui.MUTED);
+            y += 6;
+            for (var line : font.split(Component.translatable("gui.buildminions.workstation_recipe"), W - 60)) {
+                g.text(font, line, left + W / 2 - font.width(line) / 2, y, Ui.MUTED); y += 10;
+            }
             return;
         }
         // left: what can be crafted right now
         int lx = left + 14, ly = top + 36;
         g.text(font, Component.translatable("gui.buildminions.can_craft").withStyle(ChatFormatting.BOLD), lx, ly, Ui.BRASS);
         List<ModNetwork.CraftLine> can = state.craftable();
-        int per = 5, pages = Math.max(1, (can.size() + per - 1) / per);
+        int per = 4, pages = Math.max(1, (can.size() + per - 1) / per);
         craftPage = Math.min(craftPage, pages - 1);
         if (can.isEmpty()) {
             int yy = ly + 14;
@@ -332,7 +335,7 @@ public class MinionScreen extends Screen {
             g.text(font, "+" + Ui.num(l.count()), lx + 24, y + 12, Ui.GREEN);
             Ui.sprite(g, Ui.icon(l.note().contains("smelt") ? "flame" : "anvil"), lx + 122, y + 3, 16, 16);
         }
-        pager(g, mx, my, lx, top + 130, 142, craftPage, pages, p -> craftPage = p);
+        pager(g, mx, my, lx, top + 152, 142, craftPage, pages, p -> craftPage = p);
 
         // right: the queue + spare raw materials
         int rx = left + 162, rw = W - 176;
@@ -392,7 +395,9 @@ public class MinionScreen extends Screen {
         stat(g, "size", Component.translatable("gui.buildminions.size", state.sizeX(), state.sizeY(), state.sizeZ()), tx, ty); ty += 19;
         stat(g, "blocks", Component.translatable("gui.buildminions.blocks", Ui.num(blocks)), tx, ty); ty += 19;
         stat(g, "clock", Component.translatable("gui.buildminions.time", Ui.time(t.estimateSeconds(blocks))), tx, ty); ty += 19;
-        stat(g, "heart", Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(maxBlocks)), tx, ty); ty += 17;
+        stat(g, "heart", Component.literal(Ui.num(remaining) + " / " + Ui.num(maxBlocks)), tx, ty);
+        hitTooltip(tx, ty, 124, 16, Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(maxBlocks)));
+        ty += 17;
         Ui.progress(g, tx, ty, 122, 6, remaining / (float) maxBlocks, remaining < blocks ? Ui.PROGRESS_WARN : Ui.PROGRESS_FILL); ty += 12;
         if (blocks > remaining) {
             Ui.sprite(g, Ui.icon("warning"), tx, ty, 16, 16);
@@ -414,14 +419,17 @@ public class MinionScreen extends Screen {
                 Component sub = state.creative() ? Component.translatable("gui.buildminions.creative")
                         : ready ? Component.translatable("gui.buildminions.ready")
                         : Component.translatable("gui.buildminions.missing", Ui.num(missing()));
-                g.centeredText(font, sub, cx, top + 114, state.creative() ? Ui.YELLOW : ready ? Ui.TEXT : Ui.RED);
+                int sy2 = top + 114;
+                for (var line : font.split(sub, W - 168)) {
+                    g.text(font, line, cx - font.width(line) / 2, sy2, state.creative() ? Ui.YELLOW : ready ? Ui.TEXT : Ui.RED); sy2 += 10;
+                }
                 if (ready) {
                     hits.add(new Hit(ax, ay, 40, 40, () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.ACCEPT))));
                 } else {
                     hits.add(new Hit(ax, ay, 40, 40, () -> tab = Tab.MATERIALS));
                     hitTooltip(ax, ay, 40, 40, Component.translatable("gui.buildminions.goto_materials"));
                 }
-                g.centeredText(font, Component.translatable("gui.buildminions.accept_hint"), cx, top + 132, Ui.MUTED);
+                g.centeredText(font, Component.translatable("gui.buildminions.accept_hint"), cx, top + 140, Ui.MUTED);
                 actionButton(g, mx, my, Component.translatable("gui.buildminions.clear"), left + 156, top + 176, 72, 20, true,
                         () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.CLEAR)));
             }
