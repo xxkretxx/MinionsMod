@@ -11,7 +11,7 @@ jobs:
         with: { distribution: temurin, java-version: 25 }
       - uses: gradle/actions/setup-gradle@v4
       - name: build
-        run: chmod +x gradlew && ./gradlew build --continue > build.log 2>&1; grep -E "BUILD|error:" -A3 build.log | head -80; tail -30 build.log; true
+        run: chmod +x gradlew && (./gradlew build --continue > build.log 2>&1 || true); grep -E "BUILD|error:" -A3 build.log | head -80; tail -30 build.log; true
       - name: run server
         run: |
           mkdir -p fabric/run && echo "eula=true" > fabric/run/eula.txt
