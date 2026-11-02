@@ -36,7 +36,7 @@ public class BuildMinionsFabricClient implements ClientModInitializer {
         for (KeyMapping key : ModKeys.ALL) KeyMappingHelper.registerKeyMapping(key);
         ClientTickEvents.END_CLIENT_TICK.register(PlacementController::tick);
 
-        LevelRenderEvents.BEFORE_TRANSLUCENT_TERRAIN.register(ctx ->
+        LevelRenderEvents.COLLECT_SUBMITS.register(ctx ->
                 GhostRenderer.render(ctx.poseStack(), ctx.submitNodeCollector(), ctx.levelState().cameraRenderState.pos));
 
         HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, BuildMinions.id("placement_hud"), PlacementHud::extract);

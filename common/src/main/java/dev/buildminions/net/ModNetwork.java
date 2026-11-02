@@ -92,7 +92,7 @@ public final class ModNetwork {
     public record MaterialLine(Item item, int need, int have) {}
 
     /** Snapshot of a minion for the GUI. {@code open} = open the screen (otherwise just refresh it). */
-    public record MinionState(int entityId, int tier, int phase, int used, int progress, int total,
+    public record MinionState(int entityId, int tier, int phase, int used, int upgrade, int maxBlocks, int progress, int total,
                               String blueprint, int sizeX, int sizeY, int sizeZ, int placeable,
                               boolean creative, boolean open, List<MaterialLine> materials) implements CustomPacketPayload {
         public static final Type<MinionState> TYPE = new Type<>(BuildMinions.id("minion_state"));
@@ -100,6 +100,7 @@ public final class ModNetwork {
 
         static MinionState read(RegistryFriendlyByteBuf buf) {
             int id = buf.readVarInt(), tier = buf.readVarInt(), phase = buf.readVarInt(), used = buf.readVarInt();
+            int upgrade = buf.readVarInt(), maxBlocks = buf.readVarInt();
             int progress = buf.readVarInt(), total = buf.readVarInt();
             String bp = buf.readUtf(256);
             int sx = buf.readVarInt(), sy = buf.readVarInt(), sz = buf.readVarInt(), placeable = buf.readVarInt();
@@ -107,11 +108,12 @@ public final class ModNetwork {
             int n = buf.readVarInt();
             List<MaterialLine> mats = new ArrayList<>(n);
             for (int i = 0; i < n; i++) mats.add(new MaterialLine(ITEM.decode(buf), buf.readVarInt(), buf.readVarInt()));
-            return new MinionState(id, tier, phase, used, progress, total, bp, sx, sy, sz, placeable, creative, open, mats);
+            return new MinionState(id, tier, phase, used, upgrade, maxBlocks, progress, total, bp, sx, sy, sz, placeable, creative, open, mats);
         }
 
         void write(RegistryFriendlyByteBuf buf) {
             buf.writeVarInt(entityId); buf.writeVarInt(tier); buf.writeVarInt(phase); buf.writeVarInt(used);
+            buf.writeVarInt(upgrade); buf.writeVarInt(maxBlocks);
             buf.writeVarInt(progress); buf.writeVarInt(total);
             buf.writeUtf(blueprint, 256);
             buf.writeVarInt(sizeX); buf.writeVarInt(sizeY); buf.writeVarInt(sizeZ); buf.writeVarInt(placeable);

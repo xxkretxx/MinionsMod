@@ -180,9 +180,14 @@ public class MinionScreen extends Screen {
         int sw = font.width(status);
         g.text(font, status, left + W - 36 - sw, top + 13, Ui.BRASS);
         // durability pill
-        int remaining = Math.max(0, t.maxBlocks - state.used());
+        int remaining = Math.max(0, state.maxBlocks() - state.used());
         Ui.sprite(g, Ui.icon("heart"), left + W - 30, top + 9, 16, 16);
-        hitTooltip(left + W - 30, top + 9, 16, 16, Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(t.maxBlocks)));
+        Component upg = Component.translatable("gui.buildminions.upgrade." + state.upgrade());
+        hitTooltip(left + W - 30, top + 9, 16, 16, Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(state.maxBlocks())).append(" · ").append(upg));
+        if (state.upgrade() > 0) {
+            int nameW = font.width(title.copy().withStyle(ChatFormatting.BOLD));
+            g.text(font, state.upgrade() == 2 ? "★★" : "★", left + 44 + nameW, top + 13, state.upgrade() == 2 ? 0xFFFF7BFF : Ui.YELLOW);
+        }
     }
 
     // ---------------------------------------------------------------- page 1
@@ -239,7 +244,7 @@ public class MinionScreen extends Screen {
             stat(g, "blocks", Component.translatable("gui.buildminions.blocks", Ui.num(blocks)), tx, ty); ty += 18;
             stat(g, "chest", Component.translatable("gui.buildminions.types", preview.distinctBlockTypes()), tx, ty); ty += 18;
             stat(g, "clock", Component.literal("≈ " + Ui.time(tier().estimateSeconds(blocks))), tx, ty); ty += 18;
-            int remaining = Math.max(0, tier().maxBlocks - state.used());
+            int remaining = Math.max(0, state.maxBlocks() - state.used());
             if (blocks > remaining) stat(g, "warning", Component.translatable("gui.buildminions.too_big_short", Ui.num(remaining)).withStyle(ChatFormatting.RED), tx, ty);
         }
         boolean canLoad = preview != null && phase().acceptsBlueprint();
@@ -297,7 +302,8 @@ public class MinionScreen extends Screen {
             return;
         }
         MinionTier t = tier();
-        int remaining = Math.max(0, t.maxBlocks - state.used());
+        int maxBlocks = state.maxBlocks();
+        int remaining = Math.max(0, maxBlocks - state.used());
         int blocks = state.placeable();
         int sx = left + 12, sy = top + 36;
         Ui.sprite(g, Ui.INSET, sx, sy, 136, 162);
@@ -306,8 +312,8 @@ public class MinionScreen extends Screen {
         stat(g, "size", Component.translatable("gui.buildminions.size", state.sizeX(), state.sizeY(), state.sizeZ()), tx, ty); ty += 19;
         stat(g, "blocks", Component.translatable("gui.buildminions.blocks", Ui.num(blocks)), tx, ty); ty += 19;
         stat(g, "clock", Component.translatable("gui.buildminions.time", Ui.time(t.estimateSeconds(blocks))), tx, ty); ty += 19;
-        stat(g, "heart", Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(t.maxBlocks)), tx, ty); ty += 17;
-        Ui.progress(g, tx, ty, 122, 6, remaining / (float) t.maxBlocks, remaining < blocks ? Ui.PROGRESS_WARN : Ui.PROGRESS_FILL); ty += 12;
+        stat(g, "heart", Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(maxBlocks)), tx, ty); ty += 17;
+        Ui.progress(g, tx, ty, 122, 6, remaining / (float) maxBlocks, remaining < blocks ? Ui.PROGRESS_WARN : Ui.PROGRESS_FILL); ty += 12;
         if (blocks > remaining) {
             Ui.sprite(g, Ui.icon("warning"), tx, ty, 16, 16);
             int yy = ty + 1;

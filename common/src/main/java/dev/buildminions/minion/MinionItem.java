@@ -33,7 +33,7 @@ public class MinionItem extends Item {
         minion.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, yaw, 0f);
         minion.setYHeadRot(yaw);
         minion.setYBodyRot(yaw);
-        minion.setup(tier, stack.getDamageValue(), player != null ? player.getUUID() : null);
+        minion.setup(tier, stack.getDamageValue(), tier.upgradeFromMaxDamage(stack.getMaxDamage()), player != null ? player.getUUID() : null);
         if (stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME)) minion.setCustomName(stack.getHoverName());
         level.addFreshEntity(minion);
         level.playSound(null, pos, SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.NEUTRAL, 1f, 1.4f);

@@ -10,19 +10,42 @@ Craft a minion, give it a schematic, deliver the materials, then position the ho
 
 The numbers live in `common/.../minion/MinionTier.java`, change them to rebalance.
 
+## Crafting
+`A` = amethyst shard, `R` = redstone, `E` = ender pearl, `C` = Minion Core
+
+**Minion Core**
+```
+A R A
+R E R
+A R A
+```
+**Copper / Gold / Diamond Minion** (`i` = copper ingot / gold ingot / diamond, `B` = block of copper / gold / diamond)
+```
+i B i
+i C i
+i . i
+```
+The recipes unlock in the recipe book once you have redstone (core) or a Minion Core (minions).
+They are also in the mod's creative tab.
+
+## Upgrades
+Right-click a minion with:
+- **Golden Apple**: durability x2 (Copper 1,200 · Gold 600 · Diamond **10,000**)
+- **Enchanted Golden Apple**: durability x4 (Copper 2,400 · Gold 1,200 · Diamond **20,000**)
+
+The upgrade stays when you pick the minion up. Upgraded minions show ★ / ★★ in the GUI and give off sparkles.
+
 ## How to play
-1. **Crafting:** `Minion Core` = 4× amethyst shard + 4× redstone + ender pearl in the middle.
-   A minion = core in the middle, the tier's block on top, 6 ingots/diamonds around it (see `data/buildminions/recipe`).
-2. Right-click a block with the minion to place it. **Shift + right-click** picks it back up (it keeps its durability).
-3. Put `.litematic` (Litematica), `.schem` (WorldEdit/Sponge) or `.nbt` (structure block) files into `.minecraft/schematics`.
-4. Right-click the minion and the GUI opens:
+1. Right-click a block with the minion to place it. **Shift + right-click** picks it back up (it keeps its durability).
+2. Put `.litematic` (Litematica), `.schem` (WorldEdit/Sponge) or `.nbt` (structure block) files into `.minecraft/schematics`.
+   Compressed and uncompressed files both work.
+3. Right-click the minion and the GUI opens:
    - **Blueprints**: file list with pages, a preview (size, block count, build time), *Load Blueprint*
-   - **Materials**: list of required materials (have/need, pages), *Deposit from Inventory*
-   - **Overview**: size, time, durability, and the big **ACCEPT BUILD** slot in the middle
-5. After accepting, the hologram appears: **R** rotate, **M** mirror, **↑/↓** height, **K** lock, **Enter** build, **Backspace** cancel.
-   Red hologram blocks = something is in the way.
-6. The minion flies around and places blocks from the bottom up, with a hammer animation. When its durability runs out
-   it shakes, sparks and falls apart, and the leftover materials drop on the ground.
+   - **Materials**: required materials (have/need, pages), *Deposit from Inventory*
+   - **Overview**: size, time, durability and the big **ACCEPT BUILD** slot in the middle
+4. After accepting, the hologram appears (it works with shader packs too): **R** rotate, **M** mirror, **↑/↓** height,
+   **K** lock, **Enter** build, **Backspace** cancel. Red blocks = something is in the way.
+5. The minion flies around and builds from the bottom up. When its durability runs out it falls apart and drops the leftover materials.
 
 In creative mode materials are not required.
 
