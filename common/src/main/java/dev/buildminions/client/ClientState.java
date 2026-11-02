@@ -55,7 +55,7 @@ public final class ClientState {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof MinionScreen) mc.setScreen(null);
         if (!PlacementController.start(p.entityId()) && mc.player != null) {
-            mc.player.sendSystemMessage(Component.translatable("message.buildminions.no_hologram"));
+            mc.player.displayClientMessage(Component.translatable("message.buildminions.no_hologram"), false);
             Services.toServer.accept(new ModNetwork.Action(p.entityId(), ModNetwork.Action.CANCEL));
         }
     }
