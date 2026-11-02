@@ -215,21 +215,36 @@ public final class SchematicReader {
      * versions (e.g. minecraft:chain -> minecraft:iron_chain, grass -> short_grass) are renamed.
      */
     static BlockState readState(CompoundTag tag, int dataVersion) {
-        String name = tag.getStringOr("Name", "minecraft:air");
         int current = SharedConstants.WORLD_VERSION;
         CompoundTag fixed = tag;
         if (dataVersion > 0 && dataVersion < current) fixed = fix(tag, dataVersion, current);
-        BlockState state = NbtUtils.readBlockState(BuiltInRegistries.BLOCK, fixed);
-        if (state.isAir() && !name.endsWith("air")) {
-            // unknown/missing data version: try fixing from an old version as a fallback
+        BlockState state = BlockStates.parse(tagToStateString(fixed));
+        if (state.isAir() && !tag.getStringOr("Name", "minecraft:air").endsWith("air")) {
+            // unknown data version: try fixing from older versions as a fallback
             for (int from : new int[]{1343, 2586, 3465}) {
                 if (from >= current) break;
-                BlockState retry = NbtUtils.readBlockState(BuiltInRegistries.BLOCK, fix(tag, from, current));
+                BlockState retry = BlockStates.parse(tagToStateString(fix(tag, from, current)));
                 if (!retry.isAir()) return retry;
             }
-            try { return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, name, false).blockState(); } catch (Exception ignored) {}
         }
         return state;
+    }
+
+    /** {Name:..., Properties:{...}} -> "name[k=v,...]" */
+    static String tagToStateString(CompoundTag tag) {
+        StringBuilder sb = new StringBuilder(tag.getStringOr("Name", "minecraft:air"));
+        CompoundTag props = tag.getCompoundOrEmpty("Properties");
+        if (!props.isEmpty()) {
+            sb.append('[');
+            boolean first = true;
+            for (String k : props.keySet()) {
+                if (!first) sb.append(',');
+                sb.append(k).append('=').append(props.getStringOr(k, ""));
+                first = false;
+            }
+            sb.append(']');
+        }
+        return sb.toString();
     }
 
     private static CompoundTag fix(CompoundTag tag, int from, int to) {

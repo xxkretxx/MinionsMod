@@ -11,7 +11,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -158,7 +158,7 @@ public final class Schematic {
         tag.putString("Name", name);
         tag.put("Size", new IntArrayTag(new int[]{sizeX, sizeY, sizeZ}));
         ListTag pal = new ListTag();
-        for (BlockState s : palette) pal.add(NbtUtils.writeBlockState(s));
+        for (BlockState s : palette) pal.add(StringTag.valueOf(BlockStates.toString(s)));
         tag.put("Palette", pal);
         tag.put("Blocks", new IntArrayTag(blocks));
         return tag;
@@ -171,7 +171,7 @@ public final class Schematic {
         ListTag pal = tag.getListOrEmpty("Palette");
         List<BlockState> palette = new ArrayList<>();
         for (int i = 0; i < pal.size(); i++) {
-            palette.add(NbtUtils.readBlockState(BuiltInRegistries.BLOCK, pal.getCompoundOrEmpty(i)));
+            palette.add(BlockStates.parse(pal.getStringOr(i, "minecraft:air")));
         }
         if (palette.isEmpty()) palette.add(Blocks.AIR.defaultBlockState());
         int[] blocks = tag.getIntArray("Blocks").orElse(new int[0]);

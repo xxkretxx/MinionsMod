@@ -28,6 +28,10 @@ final class DebugProbe {
                                 + " state1=" + (pal.size() > 1 ? NbtUtils.readBlockState(net.minecraft.core.registries.BuiltInRegistries.BLOCK, pal.getCompoundOrEmpty(1)) : ""));
                     }
                     Schematic sc = SchematicReader.read(p);
+                    for (var st : sc.palette) if (!st.getProperties().isEmpty()) { System.out.println("PROBE state " + BlockStates.toString(st)); }
+                    Schematic back = Schematic.load(sc.save());
+                    System.out.println("PROBE roundtrip placeable=" + back.placeableCount() + " same=" + back.palette.equals(sc.palette));
+                    System.out.println("PROBE chain=" + BlockStates.toString(BlockStates.parse("minecraft:iron_chain[axis=x]")) + " oldchain=" + BlockStates.toString(SchematicReader.readState(SchematicReader.stateStringToTag("minecraft:chain[axis=x]"), 3465)));
                     System.out.println("PROBE " + p + " size=" + sc.sizeX + "x" + sc.sizeY + "x" + sc.sizeZ + " placeable=" + sc.placeableCount() + " palette=" + sc.palette.size());
                 } catch (Throwable t) { System.out.println("PROBE FAIL " + p + " " + t); t.printStackTrace(System.out); }
             }
