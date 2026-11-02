@@ -14,11 +14,9 @@ jobs:
         if: failure()
         run: grep -A3 "error:" build.log | head -300
       - name: server test (fabric)
-        run: |
-          mkdir -p fabric/runs/server && echo "eula=true" > fabric/runs/server/eula.txt
-          (timeout 300 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
-          grep -E "Done \(|buildminions|ERROR|Exception" server.log | head -40
-          grep -q "Done (" server.log
+        run: bash .ci/server_test.sh fabric fabric/runs/server
+      - name: server test (neoforge)
+        run: bash .ci/server_test.sh neoforge neoforge/runs/server
       - uses: actions/upload-artifact@v4
         with:
           name: build-minions-jars

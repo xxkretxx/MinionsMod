@@ -14,7 +14,7 @@
     "has_the_recipe": {
       "trigger": "minecraft:recipe_unlocked",
       "conditions": {
-        "recipes": "buildminions:diamond_minion"
+        "recipe": "buildminions:diamond_minion"
       }
     }
   },
