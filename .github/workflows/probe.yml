@@ -18,7 +18,7 @@ jobs:
           echo "MC=$MC"; echo "NEO=$NEO"
           find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft|neoforge' | grep -v sources | head -40
           mkdir -p out
-          for c in net.minecraft.client.input.MouseButtonInfo com.mojang.blaze3d.platform.InputConstants net.minecraft.client.MouseHandler net.minecraft.client.gui.components.events.AbstractContainerEventHandler; do
+          for c in net.minecraft.client.renderer.rendertype.RenderTypes com.mojang.blaze3d.vertex.VertexConsumer net.minecraft.client.renderer.LightTexture net.minecraft.client.renderer.texture.OverlayTexture net.minecraft.client.renderer.LightCoordsUtil net.minecraft.util.LightCoordsUtil; do
             echo "===== $c" >> out/mc.txt; javap -public -constants -cp "$MC" "$c" >> out/mc.txt 2>&1 || true; done
           for c in net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent net.neoforged.neoforge.client.event.RenderLevelStageEvent \
             net.neoforged.neoforge.client.event.RegisterGuiLayersEvent net.neoforged.neoforge.client.gui.GuiLayer net.neoforged.neoforge.client.network.ClientPacketDistributor \
