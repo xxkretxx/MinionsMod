@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "buildminions",
+  "version": "${version}",
+  "name": "Build Minions",
+  "description": "Craft Copper, Gold and Diamond Build Minions, hand them a Litematica / Sponge / vanilla schematic, feed them materials and watch them build it.",
+  "authors": ["Krzys"],
+  "license": "MIT",
+  "icon": "assets/buildminions/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.buildminions.fabric.BuildMinionsFabric"],
+    "client": ["dev.buildminions.fabric.BuildMinionsFabricClient"]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
