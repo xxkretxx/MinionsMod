@@ -27,6 +27,14 @@ final class DebugProbe {
                                 + " pal1=" + (pal.size() > 1 ? pal.getCompoundOrEmpty(1) : "") 
                                 + " state1=" + (pal.size() > 1 ? NbtUtils.readBlockState(net.minecraft.core.registries.BuiltInRegistries.BLOCK, pal.getCompoundOrEmpty(1)) : ""));
                     }
+                    {
+                        CompoundTag t = SchematicReader.stateStringToTag("minecraft:chain[axis=x]");
+                        var dyn = new com.mojang.serialization.Dynamic<Tag>(NbtOps.INSTANCE, t.copy());
+                        var out = net.minecraft.util.datafix.DataFixers.getDataFixer().update(net.minecraft.util.datafix.fixes.References.BLOCK_STATE, dyn, 3465, net.minecraft.SharedConstants.WORLD_VERSION).getValue();
+                        System.out.println("PROBE fix in=" + t + " out=" + out + " (" + out.getClass().getSimpleName() + ") WORLD_VERSION=" + net.minecraft.SharedConstants.WORLD_VERSION);
+                        var w = new com.mojang.serialization.Dynamic<Tag>(NbtOps.INSTANCE, SchematicReader.stateStringToTag("minecraft:white_wool"));
+                        System.out.println("PROBE fix wool=" + net.minecraft.util.datafix.DataFixers.getDataFixer().update(net.minecraft.util.datafix.fixes.References.BLOCK_STATE, w, 3465, net.minecraft.SharedConstants.WORLD_VERSION).getValue());
+                    }
                     Schematic sc = SchematicReader.read(p);
                     for (var st : sc.palette) if (!st.getProperties().isEmpty()) { System.out.println("PROBE state " + BlockStates.toString(st)); }
                     Schematic back = Schematic.load(sc.save());
