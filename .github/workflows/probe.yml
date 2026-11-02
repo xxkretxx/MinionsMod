@@ -18,7 +18,7 @@ jobs:
           echo "MC=$MC"; echo "NEO=$NEO"
           find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft|neoforge' | grep -v sources | head -40
           mkdir -p out
-          for c in net.minecraft.client.Minecraft net.minecraft.world.entity.Entity net.minecraft.world.level.block.WeatheringCopperCollection \
+          for c in net.minecraft.client.gui.Gui net.minecraft.util.Util net.minecraft.util.Prediction 'net.minecraft.world.level.block.WeatheringCopperCollection$ByState' net.minecraft.client.gui.components.events.ContainerEventHandler net.minecraft.client.gui.components.events.GuiEventListener net.minecraft.client.Minecraft net.minecraft.world.entity.Entity net.minecraft.world.level.block.WeatheringCopperCollection \
             'net.minecraft.util.Util$OS' net.minecraft.server.level.ServerPlayer net.minecraft.world.entity.player.Player \
             net.minecraft.client.gui.GuiGraphicsExtractor net.minecraft.client.gui.screens.Screen net.minecraft.world.level.storage.ValueInput \
             net.minecraft.world.level.storage.ValueOutput net.minecraft.sounds.SoundEvents net.minecraft.client.input.MouseButtonEvent \
