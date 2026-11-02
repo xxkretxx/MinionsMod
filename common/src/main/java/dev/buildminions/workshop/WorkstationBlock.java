@@ -1,6 +1,5 @@
 package dev.buildminions.workshop;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -20,7 +19,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * LIT = the furnace is burning (a minion is working at it).
  */
 public class WorkstationBlock extends HorizontalDirectionalBlock {
-    public static final MapCodec<WorkstationBlock> CODEC = simpleCodec(WorkstationBlock::new);
     public static final BooleanProperty LIT = BlockStateProperties.LIT;
     public static final int RANGE = 8;
     private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 12, 16);
@@ -28,11 +26,6 @@ public class WorkstationBlock extends HorizontalDirectionalBlock {
     public WorkstationBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(LIT, false));
-    }
-
-    @Override
-    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
-        return CODEC;
     }
 
     @Override
