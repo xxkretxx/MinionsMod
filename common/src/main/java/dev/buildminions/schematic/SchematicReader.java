@@ -219,7 +219,7 @@ public final class SchematicReader {
         CompoundTag fixed = tag;
         if (dataVersion > 0 && dataVersion < current) fixed = fix(tag, dataVersion, current);
         BlockState state = BlockStates.parse(tagToStateString(fixed));
-        if (state.isAir() && !tag.getStringOr("Name", "minecraft:air").endsWith("air")) {
+        if (state.isAir() && !tagToStateString(tag).startsWith("minecraft:air") && !tagToStateString(tag).contains("_air")) {
             // unknown data version: try fixing from older versions as a fallback
             for (int from : new int[]{1343, 2586, 3465}) {
                 if (from >= current) break;
@@ -232,8 +232,10 @@ public final class SchematicReader {
 
     /** {Name:..., Properties:{...}} -> "name[k=v,...]" */
     static String tagToStateString(CompoundTag tag) {
-        StringBuilder sb = new StringBuilder(tag.getStringOr("Name", "minecraft:air"));
-        CompoundTag props = tag.getCompoundOrEmpty("Properties");
+        // 26.3 writes {id, properties}; older versions and schematic files use {Name, Properties}
+        String name = tag.contains("id") ? tag.getStringOr("id", "minecraft:air") : tag.getStringOr("Name", "minecraft:air");
+        StringBuilder sb = new StringBuilder(name);
+        CompoundTag props = tag.contains("properties") ? tag.getCompoundOrEmpty("properties") : tag.getCompoundOrEmpty("Properties");
         if (!props.isEmpty()) {
             sb.append('[');
             boolean first = true;
