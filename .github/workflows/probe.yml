@@ -10,14 +10,11 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 25 }
       - uses: gradle/actions/setup-gradle@v4
-      - name: run server and check data loading
-        run: |
-          chmod +x gradlew
-          mkdir -p fabric/run && echo "eula=true" > fabric/run/eula.txt
-          (timeout 240 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
-          grep -E "PROBE|Done \(|Exception" server.log | head -80; grep -A4 "error:" server.log | head -40
+      - run: chmod +x gradlew && (./gradlew :neoforge:compileJava > /dev/null 2>&1 || true)
       - name: javap
         run: |
-          MC=$(find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft.*(merged|client)' | grep -v sources | head -1)
-          for c in net.minecraft.util.datafix.DataFixers net.minecraft.util.datafix.fixes.References net.minecraft.util.datafix.DataFixTypes net.minecraft.SharedConstants net.minecraft.WorldVersion net.minecraft.world.level.storage.DataVersion net.minecraft.nbt.NbtOps net.minecraft.nbt.NbtUtils; do
-            echo "===== $c"; javap -public -cp "$MC" "$c" 2>&1 | grep -vE "^\s+public static final net.minecraft.util.datafix.fixes.References|^Compiled" | head -60; done
+          MC=/home/runner/.gradle/caches/neoformruntime/artifacts/minecraft_26.3_client.jar
+          ls -la $MC
+          for c in net.minecraft.world.item.crafting.RecipeManager net.minecraft.world.item.crafting.RecipeHolder net.minecraft.world.item.crafting.Recipe net.minecraft.world.item.crafting.ShapedRecipe net.minecraft.world.item.crafting.ShapelessRecipe net.minecraft.world.item.crafting.AbstractCookingRecipe net.minecraft.world.item.crafting.SingleItemRecipe net.minecraft.world.item.crafting.Ingredient net.minecraft.world.item.crafting.PlacementInfo net.minecraft.world.item.crafting.RecipeType net.minecraft.world.item.crafting.CraftingInput net.minecraft.world.item.crafting.SingleRecipeInput net.minecraft.world.item.ItemStackTemplate net.minecraft.server.MinecraftServer net.minecraft.world.level.block.Block net.minecraft.world.level.block.HorizontalDirectionalBlock 'net.minecraft.world.level.block.state.BlockBehaviour$Properties' net.minecraft.world.item.BlockItem net.minecraft.world.phys.shapes.Shapes net.minecraft.world.level.block.state.properties.BlockStateProperties; do
+            echo "===== $c"; javap -public -cp "$MC" "$c" 2>&1 | grep -v "^Compiled" | grep -vE "public static final net.minecraft.world.level.block.state.properties.(IntegerProperty|EnumProperty|BooleanProperty) [A-Z_]+;" ; done
+          echo "===== BSP bool"; javap -public -cp "$MC" net.minecraft.world.level.block.state.properties.BlockStateProperties | grep -E " (LIT|HORIZONTAL_FACING);"
