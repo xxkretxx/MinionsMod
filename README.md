@@ -34,15 +34,11 @@ Requires **JDK 25**.
 The jars end up in `fabric/build/libs/` and `neoforge/build/libs/`.
 You can also push the project to GitHub. The `.github/workflows/build.yml` workflow builds both jars on its own (Actions → artifacts).
 
-## Important: this code has not been compiled yet
-The code was written for the 26.3 API (unobfuscated Mojang names, `GuiGraphicsExtractor`, `SubmitNodeCollector`,
-`Identifier`, SDL3 key codes), but in the environment where it was created there was no access to the Minecraft/Fabric/NeoForge
-servers, so **it was never compiled**. Expect a few small fixes on the first `./gradlew build`.
-Places to check first if something doesn't compile:
-- `client/MinionScreen.java`: `g.item(...)`, `g.text(..., FormattedCharSequence ...)`, `mouseClicked(MouseButtonEvent, boolean)`, `extractBackground`
-- `minion/MinionEntity.java`: `ValueInput/ValueOutput` methods (`getBooleanOr`, `putBoolean`), and whether a given `SoundEvents.X` is a `Holder` (`.value()`)
-- `neoforge/BuildMinionsNeoForgeClient.java`: the hologram rendering event (`SubmitCustomGeometryEvent`) and `RegisterGuiLayersEvent`
-- versions in `gradle.properties` (latest ones at fabricmc.net/develop and projects.neoforged.net)
+## Status
+The project **compiles** on Fabric and NeoForge 26.3 (GitHub Actions builds both jars on every push:
+Actions tab -> latest run -> `build-minions-jars`). It has **not been play-tested in-game yet**, so runtime bugs
+(rendering, GUI layout, balance) may still show up. The NeoForge hologram hook (`SubmitCustomGeometryEvent`) is the
+part most worth checking in game.
 
 ## Compatibility (honestly)
 - **Fabric 26.3**: yes (also runs on **Quilt**, which loads Fabric mods).
