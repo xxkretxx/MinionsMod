@@ -1,48 +1,35 @@
 package dev.buildminions.fabric;
 
-import java.nio.file.*;
-import dev.buildminions.schematic.*;
-import net.minecraft.nbt.*;
+import java.util.*;
+import dev.buildminions.workshop.CraftPlanner;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.item.*;
 
 final class DebugProbe {
-    static Path findDir() throws Exception {
-        System.out.println("PROBE cwd=" + Path.of("").toAbsolutePath());
-        try (var w = Files.walk(Path.of("").toAbsolutePath().getParent(), 2)) {
-            return w.filter(x -> x.getFileName().toString().equals("testschem")).findFirst().orElseThrow();
-        }
+    static void run(MinecraftServer server) {
+        try {
+            var idx = CraftPlanner.index(server);
+            System.out.println("PROBE recipes indexed for " + idx.size() + " items");
+            test(server, Map.of(Items.DARK_OAK_STAIRS, 12, Items.DARK_OAK_FENCE, 6, Items.DARK_OAK_PLANKS, 10), Map.of(Items.DARK_OAK_LOG, 16));
+            test(server, Map.of(Items.DEEPSLATE, 8, Items.POLISHED_DEEPSLATE_STAIRS, 4), Map.of(Items.COBBLED_DEEPSLATE, 20));
+            test(server, Map.of(Items.STONE_BRICK_STAIRS, 8, Items.GLASS_PANE, 16, Items.IRON_CHAIN, 2), Map.of(Items.COBBLESTONE, 20, Items.SAND, 8, Items.IRON_INGOT, 5));
+            test(server, Map.of(Items.DIAMOND_BLOCK, 1), Map.of(Items.DIRT, 64));
+        } catch (Throwable t) { System.out.println("PROBE FAIL " + t); t.printStackTrace(System.out); }
     }
-
-    static void run() {
-        try (var s = Files.list(findDir())) {
-            for (Path p : (Iterable<Path>) s::iterator) {
-                try {
-                    CompoundTag root = NbtIo.readCompressed(p, NbtAccounter.unlimitedHeap());
-                    CompoundTag regions = root.getCompoundOrEmpty("Regions");
-                    for (String k : regions.keySet()) {
-                        CompoundTag r = regions.getCompoundOrEmpty(k);
-                        Tag bs = r.get("BlockStates");
-                        ListTag pal = r.getListOrEmpty("BlockStatePalette");
-                        System.out.println("PROBE " + p + " region=" + k + " BlockStatesType=" + (bs == null ? "null" : bs.getClass().getSimpleName())
-                                + " longs=" + r.getLongArray("BlockStates").map(a -> a.length).orElse(-1) + " palette=" + pal.size()
-                                + " pal1=" + (pal.size() > 1 ? pal.getCompoundOrEmpty(1) : "") 
-                                + " state1=" + (pal.size() > 1 ? NbtUtils.readBlockState(net.minecraft.core.registries.BuiltInRegistries.BLOCK, pal.getCompoundOrEmpty(1)) : ""));
-                    }
-                    {
-                        CompoundTag t = SchematicReader.stateStringToTag("minecraft:chain[axis=x]");
-                        var dyn = new com.mojang.serialization.Dynamic<Tag>(NbtOps.INSTANCE, t.copy());
-                        var out = net.minecraft.util.datafix.DataFixers.getDataFixer().update(net.minecraft.util.datafix.fixes.References.BLOCK_STATE, dyn, 3465, net.minecraft.SharedConstants.WORLD_VERSION).getValue();
-                        System.out.println("PROBE fix in=" + t + " out=" + out + " (" + out.getClass().getSimpleName() + ") WORLD_VERSION=" + net.minecraft.SharedConstants.WORLD_VERSION);
-                        var w = new com.mojang.serialization.Dynamic<Tag>(NbtOps.INSTANCE, SchematicReader.stateStringToTag("minecraft:white_wool"));
-                        System.out.println("PROBE fix wool=" + net.minecraft.util.datafix.DataFixers.getDataFixer().update(net.minecraft.util.datafix.fixes.References.BLOCK_STATE, w, 3465, net.minecraft.SharedConstants.WORLD_VERSION).getValue());
-                    }
-                    Schematic sc = SchematicReader.read(p);
-                    int shown = 0; for (var st : sc.palette) if (!st.getProperties().isEmpty() && shown++ < 3) { System.out.println("PROBE state " + BlockStates.toString(st)); }
-                    Schematic back = Schematic.load(sc.save());
-                    System.out.println("PROBE roundtrip placeable=" + back.placeableCount() + " same=" + back.palette.equals(sc.palette));
-                    System.out.println("PROBE chain=" + BlockStates.toString(BlockStates.parse("minecraft:iron_chain[axis=x]")) + " oldchain=" + BlockStates.toString(SchematicReader.readState(SchematicReader.stateStringToTag("minecraft:chain[axis=x]"), 3465)));
-                    System.out.println("PROBE " + p + " size=" + sc.sizeX + "x" + sc.sizeY + "x" + sc.sizeZ + " placeable=" + sc.placeableCount() + " palette=" + sc.palette.size());
-                } catch (Throwable t) { System.out.println("PROBE FAIL " + p + " " + t); t.printStackTrace(System.out); }
-            }
-        } catch (Exception e) { System.out.println("PROBE FAIL list " + e); }
+    static void test(MinecraftServer s, Map<Item, Integer> missing, Map<Item, Integer> avail) {
+        var p = CraftPlanner.plan(s, new LinkedHashMap<>(missing), avail);
+        StringBuilder sb = new StringBuilder("PROBE plan missing=" + missing + " avail=" + avail + "\n");
+        for (var j : p.jobs()) sb.append("PROBE   job ").append(j.option().kind()).append(" ").append(j.option().id().identifier()).append(" x").append(j.times()).append("\n");
+        sb.append("PROBE   produced=").append(p.produced()).append(" consumed=").append(p.consumed());
+        System.out.println(sb);
+        // simulate execution
+        Map<Item, Integer> stored = new HashMap<>(avail);
+        for (var j : p.jobs()) for (int i = 0; i < j.times(); i++) {
+            if (!CraftPlanner.consumeOnce(j.option(), stored)) { System.out.println("PROBE   EXEC FAIL at " + j.option().id().identifier()); return; }
+            stored.merge(j.option().result(), j.option().resultCount(), Integer::sum);
+        }
+        boolean ok = true;
+        for (var e : p.produced().entrySet()) if (stored.getOrDefault(e.getKey(), 0) < e.getValue()) ok = false;
+        System.out.println("PROBE   exec ok=" + ok + " final=" + stored);
     }
 }

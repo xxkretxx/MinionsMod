@@ -10,11 +10,10 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 25 }
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && (./gradlew :neoforge:compileJava > /dev/null 2>&1 || true)
-      - name: javap
+      - name: build
+        run: chmod +x gradlew && ./gradlew build --continue > build.log 2>&1; grep -E "BUILD|error:" -A3 build.log | head -80
+      - name: run server
         run: |
-          MC=/home/runner/.gradle/caches/neoformruntime/artifacts/minecraft_26.3_client.jar
-          ls -la $MC
-          for c in net.minecraft.world.item.crafting.RecipeManager net.minecraft.world.item.crafting.RecipeHolder net.minecraft.world.item.crafting.Recipe net.minecraft.world.item.crafting.ShapedRecipe net.minecraft.world.item.crafting.ShapelessRecipe net.minecraft.world.item.crafting.AbstractCookingRecipe net.minecraft.world.item.crafting.SingleItemRecipe net.minecraft.world.item.crafting.Ingredient net.minecraft.world.item.crafting.PlacementInfo net.minecraft.world.item.crafting.RecipeType net.minecraft.world.item.crafting.CraftingInput net.minecraft.world.item.crafting.SingleRecipeInput net.minecraft.world.item.ItemStackTemplate net.minecraft.server.MinecraftServer net.minecraft.world.level.block.Block net.minecraft.world.level.block.HorizontalDirectionalBlock 'net.minecraft.world.level.block.state.BlockBehaviour$Properties' net.minecraft.world.item.BlockItem net.minecraft.world.phys.shapes.Shapes net.minecraft.world.level.block.state.properties.BlockStateProperties; do
-            echo "===== $c"; javap -public -cp "$MC" "$c" 2>&1 | grep -v "^Compiled" | grep -vE "public static final net.minecraft.world.level.block.state.properties.(IntegerProperty|EnumProperty|BooleanProperty) [A-Z_]+;" ; done
-          echo "===== BSP bool"; javap -public -cp "$MC" net.minecraft.world.level.block.state.properties.BlockStateProperties | grep -E " (LIT|HORIZONTAL_FACING);"
+          mkdir -p fabric/run && echo "eula=true" > fabric/run/eula.txt
+          (timeout 300 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
+          grep -E "PROBE|Done \(|Exception|ERROR" server.log | head -80; grep -A4 "error:" server.log | head -40

@@ -45,7 +45,7 @@ public class BuildMinionsFabric implements ModInitializer {
         for (ModNetwork.Clientbound<?> p : ModNetwork.CLIENTBOUND) registerClientboundType(p);
         Services.toPlayer = ServerPlayNetworking::send;
 
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(srv -> DebugProbe.run());
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(DebugProbe::run);
         BuildMinions.LOG.info("Build Minions ready – go craft a minion!");
     }
 
