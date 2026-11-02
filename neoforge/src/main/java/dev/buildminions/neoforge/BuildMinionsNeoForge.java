@@ -25,11 +25,17 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public class BuildMinionsNeoForge {
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, BuildMinions.MOD_ID);
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(Registries.ITEM, BuildMinions.MOD_ID);
+    private static final DeferredRegister<net.minecraft.world.level.block.Block> BLOCKS = DeferredRegister.create(Registries.BLOCK, BuildMinions.MOD_ID);
     private static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, BuildMinions.MOD_ID);
 
     public BuildMinionsNeoForge(IEventBus modBus) {
         DeferredHolder<EntityType<?>, EntityType<MinionEntity>> minion = ENTITIES.register("minion", ModContent::createMinionType);
         ModContent.MINION = minion::get;
+
+        DeferredHolder<net.minecraft.world.level.block.Block, net.minecraft.world.level.block.Block> ws = BLOCKS.register("minion_workstation", ModContent::createWorkstation);
+        ModContent.WORKSTATION = ws::get;
+        DeferredHolder<Item, Item> wsItem = ITEMS.register("minion_workstation", () -> ModContent.createWorkstationItem(ws.get()));
+        ModContent.WORKSTATION_ITEM = wsItem::get;
 
         DeferredHolder<Item, Item> core = ITEMS.register("minion_core", ModContent::createCore);
         ModContent.MINION_CORE = core::get;
@@ -39,6 +45,7 @@ public class BuildMinionsNeoForge {
         }
         TABS.register("main", () -> ModContent.fillTab(CreativeModeTab.builder()).build());
 
+        BLOCKS.register(modBus);
         ENTITIES.register(modBus);
         ITEMS.register(modBus);
         TABS.register(modBus);

@@ -35,6 +35,17 @@ Right-click a minion with:
 
 The upgrade stays when you pick the minion up. Upgraded minions show ★ / ★★ in the GUI and give off sparkles.
 
+## Workshop (auto-crafting)
+Craft a **Minion Workstation** (iron ingots, crafting table, Minion Core, furnace, planks) and place it within 8 blocks of a minion.
+The minion can then turn raw materials into the blocks a blueprint needs:
+- logs → planks → stairs / slabs / fences / doors
+- cobbled deepslate → deepslate (smelting), cobblestone → stone → stone bricks
+- stonecutter recipes (stone → stairs, slabs, walls...)
+
+In the **Workshop** tab: *Deposit Items* also takes the raw materials that can be crafted into missing blocks,
+*Craft All* puts everything into a queue, and the minion works through it at the workstation (hammer, little furnace,
+anvil sounds). Each step takes time, faster for better tiers.
+
 ## How to play
 1. Right-click a block with the minion to place it. **Shift + right-click** picks it back up (it keeps its durability).
 2. Put `.litematic` (Litematica), `.schem` (WorldEdit/Sponge) or `.nbt` (structure block) files into `.minecraft/schematics`.

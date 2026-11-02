@@ -26,24 +26,3 @@ jobs:
             fabric/build/libs/*.jar
             neoforge/build/libs/*.jar
             forge/build/libs/*.jar
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
-      - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && (./gradlew compileJava --continue > /dev/null 2>&1 || true)
-      - name: javap
-        run: |
-          JARS=$(find /home/runner/work ~/.gradle -name '*.jar' 2>/dev/null | grep -v sources | grep -vF 26.3)
-          findjar(){ for j in $JARS; do unzip -l "$j" 2>/dev/null | grep -q " $1$" && { echo "$j"; return; }; done; }
-          FORGE=$(findjar net/minecraftforge/network/ChannelBuilder.class); NEO=$(findjar net/neoforged/neoforge/client/event/RenderLevelStageEvent.class)
-          FMC=$(findjar net/minecraft/client/gui/screens/Screen.class)
-          echo "FORGE=$FORGE NEO=$NEO"
-          for p in net/minecraftforge/client/event net/minecraftforge/network net/minecraftforge/event/entity; do echo "##### $p"; unzip -l "$FORGE" | grep -oE "$p/[A-Za-z]+(\$[A-Za-z]+)?\.class" | sort -u | tr '\n' ' '; echo; done
-          echo "##### neo events"; unzip -l "$NEO" | grep -oE "net/neoforged/neoforge/client/event/[A-Za-z]+(\$[A-Za-z]+)?\.class" | sort -u | tr '\n' ' '; echo
-          for c in net.minecraftforge.network.ChannelBuilder net.minecraftforge.network.Channel net.minecraftforge.network.SimpleChannel net.minecraftforge.network.PayloadChannel net.minecraftforge.network.CustomPayloadEvent\$Context net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext net.minecraftforge.registries.DeferredRegister net.minecraftforge.registries.RegistryObject net.minecraftforge.event.entity.EntityAttributeCreationEvent net.minecraftforge.client.event.EntityRenderersEvent\$RegisterRenderers net.minecraftforge.client.event.EntityRenderersEvent\$RegisterLayerDefinitions net.minecraftforge.client.event.RegisterKeyMappingsEvent net.minecraftforge.client.event.AddGuiOverlayLayersEvent net.minecraftforge.client.event.RenderLevelStageEvent net.minecraftforge.event.TickEvent\$ClientTickEvent\$Post net.minecraftforge.event.TickEvent\$ClientTickEvent net.minecraftforge.network.PacketDistributor; do
-            echo "===== $c"; javap -public -cp "$FORGE:$FMC" "$c" 2>&1 | grep -v "^Compiled" | head -40; done
-          for c in net.neoforged.neoforge.client.event.RenderLevelStageEvent\$AfterEntities net.neoforged.neoforge.client.event.RenderLevelStageEvent net.neoforged.neoforge.client.network.ClientPacketDistributor net.neoforged.neoforge.client.event.RegisterGuiLayersEvent net.neoforged.neoforge.client.gui.GuiLayer; do
-            echo "===== $c"; javap -public -cp "$NEO:$FMC" "$c" 2>&1 | grep -v "^Compiled" | head -30; done

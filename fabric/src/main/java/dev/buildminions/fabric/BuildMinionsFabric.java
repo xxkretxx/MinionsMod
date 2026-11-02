@@ -25,6 +25,12 @@ public class BuildMinionsFabric implements ModInitializer {
         ModContent.MINION = () -> type;
         FabricDefaultAttributeRegistry.register(type, MinionEntity.createAttributes());
 
+        // workstation block + item
+        net.minecraft.world.level.block.Block ws = Registry.register(BuiltInRegistries.BLOCK, ModContent.WORKSTATION_KEY, ModContent.createWorkstation());
+        ModContent.WORKSTATION = () -> ws;
+        Item wsItem = Registry.register(BuiltInRegistries.ITEM, ModContent.itemKey("minion_workstation"), ModContent.createWorkstationItem(ws));
+        ModContent.WORKSTATION_ITEM = () -> wsItem;
+
         // items
         Item core = Registry.register(BuiltInRegistries.ITEM, ModContent.itemKey("minion_core"), ModContent.createCore());
         ModContent.MINION_CORE = () -> core;

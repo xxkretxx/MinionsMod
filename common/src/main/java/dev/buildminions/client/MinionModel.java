@@ -75,7 +75,7 @@ public class MinionModel extends EntityModel<MinionRenderState> {
         rightArm.zRot = 0.06f + Mth.sin(age * 0.067f) * 0.04f;
 
         switch (s.phase) {
-            case BUILDING -> {
+            case BUILDING, CRAFTING -> {
                 // hovering: legs dangle, left arm held out for balance, hammer ready
                 rightLeg.xRot = 0.25f + Mth.sin(age * 0.2f) * 0.15f;
                 leftLeg.xRot = 0.15f - Mth.sin(age * 0.2f) * 0.15f;
