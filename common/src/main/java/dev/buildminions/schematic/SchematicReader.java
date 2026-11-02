@@ -214,7 +214,7 @@ public final class SchematicReader {
      * Reads a palette entry, first running it through Minecraft's DataFixer so blocks saved by older
      * versions (e.g. minecraft:chain -> minecraft:iron_chain, grass -> short_grass) are renamed.
      */
-    static BlockState readState(CompoundTag tag, int dataVersion) {
+    public static BlockState readState(CompoundTag tag, int dataVersion) {
         int current = SharedConstants.WORLD_VERSION;
         CompoundTag fixed = tag;
         if (dataVersion > 0 && dataVersion < current) fixed = fix(tag, dataVersion, current);
@@ -257,7 +257,7 @@ public final class SchematicReader {
     }
 
     /** "minecraft:oak_stairs[facing=east,half=top]" -> {Name:..., Properties:{...}} */
-    static CompoundTag stateStringToTag(String s) {
+    public static CompoundTag stateStringToTag(String s) {
         CompoundTag tag = new CompoundTag();
         int br = s.indexOf('[');
         String name = br < 0 ? s : s.substring(0, br);
