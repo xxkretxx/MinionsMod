@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.buildminions.minion.MinionPhase;
 import dev.buildminions.minion.MinionTier;
 import dev.buildminions.net.ModNetwork;
@@ -174,10 +175,10 @@ public class MinionScreen extends Screen {
         MinionTier t = tier();
         Ui.sprite(g, Ui.HEADER, left + 30, top + 8, W - 60, 18);
         Ui.sprite(g, Ui.s("badge_" + t.id), left + 10, top + 5, 24, 24);
-        g.text(font, title.copy().withStyle(ChatFormatting.BOLD), left + 40, top + 13, Ui.DARK);
+        g.text(font, title.copy().withStyle(ChatFormatting.BOLD), left + 40, top + 13, 0xFFFFF4D6);
         String status = Component.translatable("gui.buildminions.phase." + phase().name().toLowerCase()).getString();
         int sw = font.width(status);
-        g.text(font, status, left + W - 36 - sw, top + 13, Ui.DARK);
+        g.text(font, status, left + W - 36 - sw, top + 13, Ui.BRASS);
         // durability pill
         int remaining = Math.max(0, t.maxBlocks - state.used());
         Ui.sprite(g, Ui.icon("heart"), left + W - 30, top + 9, 16, 16);
@@ -420,7 +421,7 @@ public class MinionScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) { // SDL3: left = 1
             for (int i = hits.size() - 1; i >= 0; i--) {
                 Hit h = hits.get(i);
                 if (Ui.inside(event.x(), event.y(), h.x(), h.y(), h.w(), h.h())) {

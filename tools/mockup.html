@@ -71,8 +71,8 @@ function frame(tab, tier, phase) {
   });
   blit('panel', L, T, W, H); blit('blueprint', L + 8, T + 32, W - 16, H - 40);
   blit('header', L + 30, T + 8, W - 60, 18); blit('badge_' + tier, L + 10, T + 5, 24, 24);
-  text(tier[0].toUpperCase() + tier.slice(1) + ' Minion', L + 40, T + 13, DARK, true, true);
-  text(phase, L + W - 36 - tw(phase), T + 13, DARK);
+  text(tier[0].toUpperCase() + tier.slice(1) + ' Minion', L + 40, T + 13, 0xFFF4D6, true, true);
+  text(phase, L + W - 36 - tw(phase), T + 13, BRASS);
   blit('icon_heart', L + W - 30, T + 9, 16, 16);
 }
 const mats = [['Oak Planks', 412, 412, '#b8945f'], ['Cobblestone', 268, 268, '#8a8a8a'], ['Spruce Log', 96, 64, '#5a3d22'], ['Glass Pane', 48, 48, '#bfe6f5'],
