@@ -27,6 +27,21 @@ public final class ModContent {
     public static Supplier<EntityType<MinionEntity>> MINION = () -> { throw new IllegalStateException("not registered"); };
     public static final Map<MinionTier, Supplier<Item>> MINION_ITEMS = new EnumMap<>(MinionTier.class);
     public static Supplier<Item> MINION_CORE = () -> { throw new IllegalStateException("not registered"); };
+    public static Supplier<net.minecraft.world.level.block.Block> WORKSTATION = () -> { throw new IllegalStateException("not registered"); };
+    public static Supplier<Item> WORKSTATION_ITEM = () -> { throw new IllegalStateException("not registered"); };
+    public static final ResourceKey<net.minecraft.world.level.block.Block> WORKSTATION_KEY =
+            ResourceKey.create(Registries.BLOCK, BuildMinions.id("minion_workstation"));
+
+    public static net.minecraft.world.level.block.Block createWorkstation() {
+        return new dev.buildminions.workshop.WorkstationBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties.of()
+                .setId(WORKSTATION_KEY).strength(2.5f).noOcclusion()
+                .sound(net.minecraft.world.level.block.SoundType.WOOD)
+                .lightLevel(s -> s.getValue(dev.buildminions.workshop.WorkstationBlock.LIT) ? 11 : 0));
+    }
+
+    public static Item createWorkstationItem(net.minecraft.world.level.block.Block block) {
+        return new net.minecraft.world.item.BlockItem(block, new Item.Properties().setId(itemKey("minion_workstation")).useBlockDescriptionPrefix());
+    }
 
     private ModContent() {}
 
@@ -61,6 +76,7 @@ public final class ModContent {
                 .icon(() -> new ItemStack(MINION_ITEMS.get(MinionTier.DIAMOND).get()))
                 .displayItems((params, output) -> {
                     output.accept(MINION_CORE.get());
+                    output.accept(WORKSTATION_ITEM.get());
                     for (MinionTier t : MinionTier.values()) output.accept(MINION_ITEMS.get(t).get());
                 });
     }

@@ -85,5 +85,21 @@
   "gui.buildminions.upgrade.1": "★ Golden Apple upgrade (x2). Enchanted Golden Apple → x4",
   "gui.buildminions.upgrade.2": "★★ Enchanted Golden Apple upgrade (x4)",
   "message.buildminions.upgraded": "§6✦ %s upgraded! It can now place up to §e%s§6 blocks.",
-  "message.buildminions.already_upgraded": "§7This minion already has this upgrade (or a better one)."
+  "message.buildminions.already_upgraded": "§7This minion already has this upgrade (or a better one).",
+  "block.buildminions.minion_workstation": "Minion Workstation",
+  "item.buildminions.minion_workstation": "Minion Workstation",
+  "gui.buildminions.tab.workshop": "Workshop",
+  "gui.buildminions.phase.crafting": "Crafting",
+  "gui.buildminions.no_workstation": "Place a Minion Workstation within 8 blocks of the minion. It will craft, smelt and cut missing materials from the raw ones you give it (logs → planks → stairs, cobbled deepslate → deepslate...).",
+  "gui.buildminions.workstation_recipe": "Recipe: iron ingots, crafting table, Minion Core, furnace, planks",
+  "gui.buildminions.can_craft": "Can make now",
+  "gui.buildminions.nothing_craftable": "Nothing to craft yet. Deposit raw materials (logs, stone, cobbled deepslate...) and they will show up here.",
+  "gui.buildminions.queue": "Queue",
+  "gui.buildminions.queue_empty": "Empty",
+  "gui.buildminions.spare": "Raw materials",
+  "gui.buildminions.craft_all": "Craft All",
+  "gui.buildminions.clear_queue": "Clear Queue",
+  "gui.buildminions.deposit_raw": "Deposit Items",
+  "gui.buildminions.crafting": "Working at the workstation...",
+  "message.buildminions.nothing_to_craft": "§7Nothing can be crafted from the materials the minion has."
 }

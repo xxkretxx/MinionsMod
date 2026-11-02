@@ -14,6 +14,13 @@ import dev.buildminions.ModContent;
 import dev.buildminions.net.ModNetwork;
 import dev.buildminions.platform.Services;
 import dev.buildminions.schematic.Schematic;
+import dev.buildminions.workshop.CraftPlanner;
+import dev.buildminions.workshop.WorkstationBlock;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponents;
@@ -84,6 +91,16 @@ public class MinionEntity extends Mob {
     private byte[][] uploadParts;
     private UUID uploader;
 
+    // ---- workshop
+    private static final class QueuedJob {
+        final CraftPlanner.Option option; int left; final int total;
+        QueuedJob(CraftPlanner.Option option, int left, int total) { this.option = option; this.left = left; this.total = total; }
+    }
+    private final List<QueuedJob> craftQueue = new ArrayList<>();
+    private ListTag pendingQueueTag;
+    private int craftTimer, craftDuration;
+    private BlockPos workstationPos;
+
     // ---- client animation
     public int swingTicks;
     public int prevSwingTicks;
@@ -134,7 +151,7 @@ public class MinionEntity extends Mob {
     private void setPhase(MinionPhase phase) {
         this.entityData.set(DATA_PHASE, phase.ordinal());
         this.entityData.set(DATA_PHASE_TICKS, 0);
-        boolean flying = phase == MinionPhase.BUILDING;
+        boolean flying = phase == MinionPhase.BUILDING || phase == MinionPhase.CRAFTING;
         this.setNoGravity(flying);
         this.noPhysics = flying;
     }
@@ -160,7 +177,7 @@ public class MinionEntity extends Mob {
         if (this.level().isClientSide()) {
             prevSwingTicks = swingTicks;
             if (swingTicks > 0) swingTicks--;
-            if (getPhase() == MinionPhase.BUILDING && random.nextInt(4) == 0) {
+            if ((getPhase() == MinionPhase.BUILDING || getPhase() == MinionPhase.CRAFTING) && random.nextInt(4) == 0) {
                 MinionTier t = getTier();
                 level().addParticle(ParticleTypes.ELECTRIC_SPARK, getX() + (random.nextDouble() - .5) * .4, getY() + .1, getZ() + (random.nextDouble() - .5) * .4, 0, -0.05, 0);
                 if (getUpgrade() > 0 && random.nextInt(3) == 0)
@@ -174,6 +191,7 @@ public class MinionEntity extends Mob {
         switch (getPhase()) {
             case BUILDING -> buildTick((ServerLevel) level());
             case BREAKING -> breakTick((ServerLevel) level());
+            case CRAFTING -> craftTick((ServerLevel) level());
             default -> {}
         }
     }
@@ -274,6 +292,154 @@ public class MinionEntity extends Mob {
         discard();
     }
 
+    // ================================================================= workshop
+
+    /** Finds a Minion Workstation within range (cached while it still exists). */
+    public BlockPos findWorkstation() {
+        Level level = level();
+        if (workstationPos != null && level.getBlockState(workstationPos).getBlock() instanceof WorkstationBlock
+                && workstationPos.closerToCenterThan(position(), WorkstationBlock.RANGE + 2)) return workstationPos;
+        workstationPos = null;
+        BlockPos c = blockPosition();
+        int r = WorkstationBlock.RANGE;
+        double best = Double.MAX_VALUE;
+        for (BlockPos p : BlockPos.betweenClosed(c.offset(-r, -4, -r), c.offset(r, 4, r))) {
+            if (level.getBlockState(p).getBlock() instanceof WorkstationBlock) {
+                double d = p.distSqr(c);
+                if (d < best) { best = d; workstationPos = p.immutable(); }
+            }
+        }
+        return workstationPos;
+    }
+
+    private Map<Item, Integer> missingMaterials() {
+        Map<Item, Integer> missing = new LinkedHashMap<>();
+        if (schematic == null) return missing;
+        for (Map.Entry<Item, Integer> e : schematic.requirements().entrySet()) {
+            int m = e.getValue() - stored.getOrDefault(e.getKey(), 0);
+            if (m > 0) missing.put(e.getKey(), m);
+        }
+        // items already being crafted are not missing any more
+        for (QueuedJob j : craftQueue) {
+            Item out = j.option.result();
+            if (missing.containsKey(out)) missing.put(out, Math.max(0, missing.get(out) - j.left * j.option.resultCount()));
+        }
+        return missing;
+    }
+
+    /** Raw items in storage that are not needed directly by the blueprint (they can be crafted into something). */
+    private Map<Item, Integer> spareStock() {
+        Map<Item, Integer> spare = new LinkedHashMap<>();
+        Map<Item, Integer> req = schematic != null ? schematic.requirements() : Map.of();
+        for (Map.Entry<Item, Integer> e : stored.entrySet()) {
+            int s = e.getValue() - req.getOrDefault(e.getKey(), 0);
+            if (s > 0) spare.put(e.getKey(), s);
+        }
+        return spare;
+    }
+
+    private void queueCraftAll(ServerPlayer player) {
+        if (findWorkstation() == null || schematic == null) return;
+        CraftPlanner.Plan plan = CraftPlanner.plan(level().getServer(), missingMaterials(), spareStock());
+        for (CraftPlanner.Job j : plan.jobs()) craftQueue.add(new QueuedJob(j.option(), j.times(), j.times()));
+        if (!craftQueue.isEmpty()) {
+            setPhase(MinionPhase.CRAFTING);
+            craftTimer = 0;
+            playSound(SoundEvents.VILLAGER_WORK_TOOLSMITH, 0.8f, 1.3f);
+        } else {
+            player.sendSystemMessage(Component.translatable("message.buildminions.nothing_to_craft"));
+        }
+    }
+
+    private int runDuration(CraftPlanner.Option o) {
+        int t = getTier().ticksPerBlock;
+        return o.kind() == CraftPlanner.Kind.SMELT ? 18 + t * 2 : 8 + t;
+    }
+
+    private void craftTick(ServerLevel level) {
+        resolvePendingQueue(level);
+        BlockPos ws = findWorkstation();
+        if (ws == null || craftQueue.isEmpty()) { stopCrafting(level); return; }
+        // hover next to the table, facing it
+        Vec3 table = Vec3.atBottomCenterOf(ws).add(0, 0.75, 0);
+        Vec3 side = new Vec3(getX() - table.x, 0, getZ() - table.z);
+        side = side.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : side.normalize();
+        Vec3 hover = table.add(side.scale(0.9)).add(0, 0.1 + Math.sin(tickCount * 0.2) * 0.04, 0);
+        Vec3 delta = hover.subtract(position());
+        double dist = delta.length(), speed = getTier().flySpeed;
+        setPos(position().add(dist > speed ? delta.scale(speed / dist) : delta));
+        setDeltaMovement(Vec3.ZERO);
+        float yaw = (float) (Mth.atan2(table.z - getZ(), table.x - getX()) * Mth.RAD_TO_DEG) - 90f;
+        setYRot(yaw); setYHeadRot(yaw); setYBodyRot(yaw); setXRot(25f);
+        if (dist > 1.5) return;
+
+        QueuedJob job = craftQueue.get(0);
+        boolean smelting = job.option.kind() == CraftPlanner.Kind.SMELT;
+        setLit(level, ws, smelting);
+        if (craftTimer == 0) craftDuration = runDuration(job.option);
+        craftTimer++;
+        if (craftTimer % 6 == 0) {
+            level.broadcastEntityEvent(this, EVENT_SWING);
+            if (smelting) {
+                level.sendParticles(ParticleTypes.FLAME, ws.getX() + .75, ws.getY() + .8, ws.getZ() + .5, 2, .08, .05, .08, 0.01);
+                level.sendParticles(ParticleTypes.SMOKE, ws.getX() + .75, ws.getY() + 1.0, ws.getZ() + .5, 2, .05, .05, .05, 0.01);
+            } else {
+                level.sendParticles(ParticleTypes.CRIT, ws.getX() + .5, ws.getY() + .8, ws.getZ() + .5, 3, .15, .05, .15, 0.05);
+                level.playSound(null, ws, SoundEvents.ANVIL_USE, SoundSource.BLOCKS, 0.15f, 1.6f + random.nextFloat() * 0.3f);
+            }
+        }
+        if (craftTimer < craftDuration) return;
+        craftTimer = 0;
+        if (CraftPlanner.consumeOnce(job.option, stored)) {
+            stored.merge(job.option.result(), job.option.resultCount(), Integer::sum);
+            level.playSound(null, ws, smelting ? SoundEvents.FURNACE_FIRE_CRACKLE : SoundEvents.VILLAGER_WORK_TOOLSMITH, SoundSource.BLOCKS, 0.6f, 1.2f);
+            job.left--;
+        } else {
+            job.left = 0; // ingredients gone (taken back by the player?) – skip this job
+        }
+        if (job.left <= 0) craftQueue.remove(0);
+        if (craftQueue.isEmpty()) stopCrafting(level);
+        notifyOwnerState(level);
+    }
+
+    private void stopCrafting(ServerLevel level) {
+        if (workstationPos != null) setLit(level, workstationPos, false);
+        craftTimer = 0;
+        if (getPhase() == MinionPhase.CRAFTING) {
+            setPhase(schematic != null ? MinionPhase.COLLECTING : MinionPhase.IDLE);
+            playSound(SoundEvents.NOTE_BLOCK_BELL.value(), 0.7f, 1.6f);
+        }
+    }
+
+    private void setLit(ServerLevel level, BlockPos pos, boolean lit) {
+        BlockState s = level.getBlockState(pos);
+        if (s.getBlock() instanceof WorkstationBlock && s.getValue(WorkstationBlock.LIT) != lit)
+            level.setBlock(pos, s.setValue(WorkstationBlock.LIT, lit), Block.UPDATE_ALL);
+    }
+
+    private void notifyOwnerState(ServerLevel level) {
+        if (owner == null) return;
+        ServerPlayer p = level.getServer().getPlayerList().getPlayer(owner);
+        if (p != null && p.distanceToSqr(this) < 64 * 64) sendState(p, false);
+    }
+
+    private void resolvePendingQueue(ServerLevel level) {
+        if (pendingQueueTag == null) return;
+        for (int i = 0; i < pendingQueueTag.size(); i++) {
+            CompoundTag t = pendingQueueTag.getCompoundOrEmpty(i);
+            try {
+                ResourceKey<Recipe<?>> key = ResourceKey.create(Registries.RECIPE, Identifier.parse(t.getStringOr("Recipe", "")));
+                CraftPlanner.Option o = CraftPlanner.byId(level.getServer(), key);
+                if (o != null) craftQueue.add(new QueuedJob(o, t.getIntOr("Left", 0), t.getIntOr("Total", 1)));
+            } catch (Exception ignored) {}
+        }
+        pendingQueueTag = null;
+    }
+
+    private static String itemName(Item item) {
+        return new ItemStack(item).getHoverName().getString();
+    }
+
     // ================================================================= interaction
 
     @Override
@@ -308,7 +474,7 @@ public class MinionEntity extends Mob {
         MinionPhase phase = getPhase();
         switch (action) {
             case ModNetwork.Action.REFRESH -> {}
-            case ModNetwork.Action.DEPOSIT -> { if (phase == MinionPhase.COLLECTING) deposit(player); }
+            case ModNetwork.Action.DEPOSIT -> { if (phase == MinionPhase.COLLECTING || phase == MinionPhase.CRAFTING) deposit(player); }
             case ModNetwork.Action.ACCEPT -> {
                 if (phase == MinionPhase.COLLECTING && schematic != null && (player.hasInfiniteMaterials() || missingCount() == 0)) {
                     creativeJob = player.hasInfiniteMaterials();
@@ -318,6 +484,13 @@ public class MinionEntity extends Mob {
                     playSound(SoundEvents.NOTE_BLOCK_CHIME.value(), 1f, 1.5f);
                     return;
                 }
+            }
+            case ModNetwork.Action.CRAFT_ALL -> {
+                if (phase == MinionPhase.COLLECTING || phase == MinionPhase.CRAFTING) queueCraftAll(player);
+            }
+            case ModNetwork.Action.CLEAR_QUEUE -> {
+                craftQueue.clear();
+                if (phase == MinionPhase.CRAFTING) stopCrafting((ServerLevel) level());
             }
             case ModNetwork.Action.CANCEL -> {
                 if (phase == MinionPhase.BUILDING || phase == MinionPhase.AWAITING_PLACEMENT) {
@@ -410,6 +583,31 @@ public class MinionEntity extends Mob {
             }
             if (have > 0) stored.put(e.getKey(), have);
         }
+        // with a workstation nearby, also take the raw materials that can be crafted into missing blocks
+        if (findWorkstation() != null) {
+            Map<Item, Integer> invCounts = new LinkedHashMap<>();
+            for (int i = 0; i < inv.getContainerSize(); i++) {
+                ItemStack st = inv.getItem(i);
+                if (!st.isEmpty() && !st.getComponentsPatch().isEmpty()) continue; // never eat named / enchanted items
+                if (!st.isEmpty()) invCounts.merge(st.getItem(), st.getCount(), Integer::sum);
+            }
+            Map<Item, Integer> spare = spareStock();
+            Map<Item, Integer> avail = new LinkedHashMap<>(spare);
+            invCounts.forEach((k, v) -> avail.merge(k, v, Integer::sum));
+            CraftPlanner.Plan plan = CraftPlanner.plan(level().getServer(), missingMaterials(), avail);
+            for (Map.Entry<Item, Integer> e : plan.consumed().entrySet()) {
+                int fromInv = e.getValue() - Math.min(e.getValue(), spare.getOrDefault(e.getKey(), 0));
+                for (int i = 0; i < inv.getContainerSize() && fromInv > 0; i++) {
+                    ItemStack st = inv.getItem(i);
+                    if (st.isEmpty() || !st.is(e.getKey()) || !st.getComponentsPatch().isEmpty()) continue;
+                    int take = Math.min(fromInv, st.getCount());
+                    st.shrink(take);
+                    fromInv -= take;
+                    stored.merge(e.getKey(), take, Integer::sum);
+                    moved = true;
+                }
+            }
+        }
         if (moved) {
             inv.setChanged();
             playSound(SoundEvents.ITEM_PICKUP, 0.6f, 1.2f);
@@ -477,8 +675,26 @@ public class MinionEntity extends Mob {
             name = schematic.name;
         }
         int total = queue != null ? queue.size() : placeable;
+        boolean hasWs = findWorkstation() != null;
+        List<ModNetwork.CraftLine> craftable = new ArrayList<>(), queueLines = new ArrayList<>(), raw = new ArrayList<>();
+        if (schematic != null && hasWs && level() instanceof ServerLevel sl) {
+            resolvePendingQueue(sl);
+            CraftPlanner.Plan plan = CraftPlanner.plan(sl.getServer(), missingMaterials(), spareStock());
+            for (Map.Entry<Item, Integer> e : plan.produced().entrySet()) {
+                StringBuilder via = new StringBuilder();
+                for (CraftPlanner.Job j : plan.jobs()) if (j.option().result() == e.getKey()) {
+                    via.append(j.option().kind().name().toLowerCase());
+                }
+                craftable.add(new ModNetwork.CraftLine(e.getKey(), e.getValue(), e.getValue(), via.toString()));
+            }
+        }
+        for (QueuedJob j : craftQueue)
+            queueLines.add(new ModNetwork.CraftLine(j.option.result(), j.left * j.option.resultCount(), j.total * j.option.resultCount(), j.option.kind().name().toLowerCase()));
+        for (Map.Entry<Item, Integer> e : spareStock().entrySet()) raw.add(new ModNetwork.CraftLine(e.getKey(), e.getValue(), e.getValue(), ""));
+        float craftProgress = craftDuration > 0 ? craftTimer / (float) craftDuration : 0f;
         Services.toPlayer.accept(player, new ModNetwork.MinionState(getId(), getTier().ordinal(), getPhase().ordinal(), getUsed(), getUpgrade(), getMaxBlocks(),
-                queueIndex, total, name, sx, sy, sz, placeable, player.hasInfiniteMaterials(), open, lines));
+                queueIndex, total, name, sx, sy, sz, placeable, player.hasInfiniteMaterials(), open, lines,
+                hasWs, craftProgress, craftable, queueLines, raw));
     }
 
     // ================================================================= saving
@@ -494,6 +710,18 @@ public class MinionEntity extends Mob {
         if (owner != null) out.store("Owner", UUIDUtil.CODEC, owner);
         if (schematic != null) out.store("Blueprint", CompoundTag.CODEC, schematic.save());
         out.store("Stored", STORED_CODEC, new LinkedHashMap<>(stored));
+        ListTag q = new ListTag();
+        for (QueuedJob j : craftQueue) {
+            CompoundTag t = new CompoundTag();
+            t.putString("Recipe", j.option.id().identifier().toString());
+            t.putInt("Left", j.left);
+            t.putInt("Total", j.total);
+            q.add(t);
+        }
+        if (pendingQueueTag != null) q.addAll(pendingQueueTag);
+        CompoundTag wrap = new CompoundTag();
+        wrap.put("Jobs", q);
+        out.store("CraftQueue", CompoundTag.CODEC, wrap);
         if (anchor != null) {
             out.store("Anchor", BlockPos.CODEC, anchor);
             out.putInt("Rotation", rotation.ordinal());
@@ -515,6 +743,8 @@ public class MinionEntity extends Mob {
         }).orElse(null);
         stored.clear();
         in.read("Stored", STORED_CODEC).ifPresent(stored::putAll);
+        craftQueue.clear();
+        pendingQueueTag = in.read("CraftQueue", CompoundTag.CODEC).map(t -> t.getListOrEmpty("Jobs")).filter(l -> !l.isEmpty()).orElse(null);
         this.anchor = in.read("Anchor", BlockPos.CODEC).orElse(null);
         this.rotation = Rotation.values()[Math.floorMod(in.getIntOr("Rotation", 0), 4)];
         this.mirror = Mirror.values()[Math.floorMod(in.getIntOr("Mirror", 0), 3)];

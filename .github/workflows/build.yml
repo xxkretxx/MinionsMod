@@ -12,6 +12,12 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew && ./gradlew build --stacktrace
+      - name: server test (loads the mod + data packs on a real dedicated server)
+        run: |
+          mkdir -p fabric/run && echo "eula=true" > fabric/run/eula.txt
+          (timeout 300 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
+          grep -E "Done \(|ERROR|Exception" server.log | grep -v "server.properties" | head -30
+          grep -q "Done (" server.log
       - uses: actions/upload-artifact@v4
         with:
           name: build-minions-jars

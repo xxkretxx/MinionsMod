@@ -12,7 +12,9 @@ public enum MinionPhase {
     /** Finished the last job. */
     DONE,
     /** Durability exhausted – playing the break animation, then pops. */
-    BREAKING;
+    BREAKING,
+    /** Working at a Minion Workstation through its crafting queue. */
+    CRAFTING;
 
     public static MinionPhase byId(int id) {
         MinionPhase[] v = values();
