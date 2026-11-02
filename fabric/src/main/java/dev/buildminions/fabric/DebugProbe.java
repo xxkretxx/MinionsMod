@@ -5,8 +5,15 @@ import dev.buildminions.schematic.*;
 import net.minecraft.nbt.*;
 
 final class DebugProbe {
+    static Path findDir() throws Exception {
+        System.out.println("PROBE cwd=" + Path.of("").toAbsolutePath());
+        try (var w = Files.walk(Path.of("").toAbsolutePath().getParent(), 4)) {
+            return w.filter(x -> x.getFileName().toString().equals("testschem")).findFirst().orElseThrow();
+        }
+    }
+
     static void run() {
-        try (var s = Files.list(Path.of("testschem"))) {
+        try (var s = Files.list(findDir())) {
             for (Path p : (Iterable<Path>) s::iterator) {
                 try {
                     CompoundTag root = NbtIo.readCompressed(p, NbtAccounter.unlimitedHeap());

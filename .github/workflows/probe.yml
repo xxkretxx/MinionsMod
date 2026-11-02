@@ -16,3 +16,8 @@ jobs:
           mkdir -p fabric/run && echo "eula=true" > fabric/run/eula.txt
           (timeout 240 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
           grep -E "PROBE|Done \(|^\s+at dev|Exception" server.log | grep -v "^\s*at " | head -80
+      - name: javap
+        run: |
+          MC=$(find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft.*(merged|client)' | grep -v sources | head -1)
+          for c in net.minecraft.util.datafix.DataFixers net.minecraft.util.datafix.fixes.References net.minecraft.util.datafix.DataFixTypes net.minecraft.SharedConstants net.minecraft.WorldVersion net.minecraft.world.level.storage.DataVersion net.minecraft.nbt.NbtOps net.minecraft.nbt.NbtUtils; do
+            echo "===== $c"; javap -public -cp "$MC" "$c" 2>&1 | grep -vE "^\s+public static final net.minecraft.util.datafix.fixes.References|^Compiled" | head -60; done
