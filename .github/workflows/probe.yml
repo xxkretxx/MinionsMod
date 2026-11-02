@@ -15,7 +15,7 @@ jobs:
           chmod +x gradlew
           mkdir -p fabric/run && echo "eula=true" > fabric/run/eula.txt
           (timeout 240 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
-          grep -E "PROBE|Done \(|^\s+at dev|Exception" server.log | grep -v "^\s*at " | head -80
+          grep -E "PROBE|Done \(|Exception" server.log | head -80; grep -A4 "error:" server.log | head -40
       - name: javap
         run: |
           MC=$(find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft.*(merged|client)' | grep -v sources | head -1)
