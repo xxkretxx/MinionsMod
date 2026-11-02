@@ -75,7 +75,7 @@ def rivet(g, x, y, pal):
 
 def paint_entity(tier):
     pal = TIERS[tier]
-    rng = random.Random(hash(tier) & 0xffff)
+    rng = random.Random({"copper": 1, "gold": 2, "diamond": 3}[tier])  # deterministic
     img = Image.new("RGBA", (TEX_W, TEX_H), (0, 0, 0, 0))
     px = img.load()
     patina = (pal["patina"], pal["patina_l"]) if pal["patina"] else None
@@ -541,7 +541,7 @@ def header():
             e = min(x, y, w - 1 - x, h - 1 - y)
             if e == 0: c = (14, 12, 8)
             elif e == 1: c = BRASS_L if (y == 1) else BRASS_D
-            else: c = mix(BRASS, BRASS_D, y / h)
+            else: c = mix((78, 52, 26), (44, 28, 14), y / h)  # dark bronze plate so light text is readable
             p[x, y] = c + (255,)
     return img
 
@@ -583,7 +583,7 @@ def main():
     nine(row(True), "row_done", 3)
     nine(header(), "header", 3)
     for k in ("bg", "fill", "fill_warn", "fill_blue"):
-        nine(progress(k), "progress_" + k, 2)
+        nine(progress(k), "progress_" + k, 1)
     sprite(slot18(), "slot")
     for st in ("ready", "hover", "locked"):
         sprite(accept_slot(st), "accept_" + st)

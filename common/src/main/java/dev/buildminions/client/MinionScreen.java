@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.buildminions.minion.MinionPhase;
 import dev.buildminions.minion.MinionTier;
 import dev.buildminions.net.ModNetwork;
@@ -20,7 +21,6 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -119,6 +119,14 @@ public class MinionScreen extends Screen {
         });
     }
 
+    private static void openFolder(Path dir) {
+        String os = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
+        String[] cmd = os.contains("win") ? new String[]{"explorer", dir.toString()}
+                : os.contains("mac") ? new String[]{"open", dir.toString()}
+                : new String[]{"xdg-open", dir.toString()};
+        try { new ProcessBuilder(cmd).start(); } catch (Exception ignored) {}
+    }
+
     // ================================================================= drawing
 
     @Override
@@ -167,14 +175,19 @@ public class MinionScreen extends Screen {
         MinionTier t = tier();
         Ui.sprite(g, Ui.HEADER, left + 30, top + 8, W - 60, 18);
         Ui.sprite(g, Ui.s("badge_" + t.id), left + 10, top + 5, 24, 24);
-        g.text(font, title.copy().withStyle(ChatFormatting.BOLD), left + 40, top + 13, Ui.DARK);
+        g.text(font, title.copy().withStyle(ChatFormatting.BOLD), left + 40, top + 13, 0xFFFFF4D6);
         String status = Component.translatable("gui.buildminions.phase." + phase().name().toLowerCase()).getString();
         int sw = font.width(status);
-        g.text(font, status, left + W - 36 - sw, top + 13, Ui.DARK);
+        g.text(font, status, left + W - 36 - sw, top + 13, Ui.BRASS);
         // durability pill
-        int remaining = Math.max(0, t.maxBlocks - state.used());
+        int remaining = Math.max(0, state.maxBlocks() - state.used());
         Ui.sprite(g, Ui.icon("heart"), left + W - 30, top + 9, 16, 16);
-        hitTooltip(left + W - 30, top + 9, 16, 16, Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(t.maxBlocks)));
+        Component upg = Component.translatable("gui.buildminions.upgrade." + state.upgrade());
+        hitTooltip(left + W - 30, top + 9, 16, 16, Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(state.maxBlocks())).append(" · ").append(upg));
+        if (state.upgrade() > 0) {
+            int nameW = font.width(title.copy().withStyle(ChatFormatting.BOLD));
+            g.text(font, state.upgrade() == 2 ? "★★" : "★", left + 44 + nameW, top + 13, state.upgrade() == 2 ? 0xFFFF7BFF : Ui.YELLOW);
+        }
     }
 
     // ---------------------------------------------------------------- page 1
@@ -191,7 +204,7 @@ public class MinionScreen extends Screen {
             }
             g.centeredText(font, Component.literal(".minecraft/schematics  (.litematic · .schem · .nbt)"), left + W / 2, ly + 96, Ui.MUTED);
             actionButton(g, mx, my, Component.translatable("gui.buildminions.open_folder"), left + W / 2 - 104, top + 172, 100, 20, true,
-                    () -> Util.getPlatform().openPath(ClientState.schematicsFolder()));
+                    () -> openFolder(ClientState.schematicsFolder()));
             actionButton(g, mx, my, Component.translatable("gui.buildminions.refresh"), left + W / 2 + 4, top + 172, 100, 20, true, this::scanFiles);
             return;
         }
@@ -231,7 +244,7 @@ public class MinionScreen extends Screen {
             stat(g, "blocks", Component.translatable("gui.buildminions.blocks", Ui.num(blocks)), tx, ty); ty += 18;
             stat(g, "chest", Component.translatable("gui.buildminions.types", preview.distinctBlockTypes()), tx, ty); ty += 18;
             stat(g, "clock", Component.literal("≈ " + Ui.time(tier().estimateSeconds(blocks))), tx, ty); ty += 18;
-            int remaining = Math.max(0, tier().maxBlocks - state.used());
+            int remaining = Math.max(0, state.maxBlocks() - state.used());
             if (blocks > remaining) stat(g, "warning", Component.translatable("gui.buildminions.too_big_short", Ui.num(remaining)).withStyle(ChatFormatting.RED), tx, ty);
         }
         boolean canLoad = preview != null && phase().acceptsBlueprint();
@@ -289,7 +302,8 @@ public class MinionScreen extends Screen {
             return;
         }
         MinionTier t = tier();
-        int remaining = Math.max(0, t.maxBlocks - state.used());
+        int maxBlocks = state.maxBlocks();
+        int remaining = Math.max(0, maxBlocks - state.used());
         int blocks = state.placeable();
         int sx = left + 12, sy = top + 36;
         Ui.sprite(g, Ui.INSET, sx, sy, 136, 162);
@@ -298,8 +312,8 @@ public class MinionScreen extends Screen {
         stat(g, "size", Component.translatable("gui.buildminions.size", state.sizeX(), state.sizeY(), state.sizeZ()), tx, ty); ty += 19;
         stat(g, "blocks", Component.translatable("gui.buildminions.blocks", Ui.num(blocks)), tx, ty); ty += 19;
         stat(g, "clock", Component.translatable("gui.buildminions.time", Ui.time(t.estimateSeconds(blocks))), tx, ty); ty += 19;
-        stat(g, "heart", Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(t.maxBlocks)), tx, ty); ty += 17;
-        Ui.progress(g, tx, ty, 122, 6, remaining / (float) t.maxBlocks, remaining < blocks ? Ui.PROGRESS_WARN : Ui.PROGRESS_FILL); ty += 12;
+        stat(g, "heart", Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(maxBlocks)), tx, ty); ty += 17;
+        Ui.progress(g, tx, ty, 122, 6, remaining / (float) maxBlocks, remaining < blocks ? Ui.PROGRESS_WARN : Ui.PROGRESS_FILL); ty += 12;
         if (blocks > remaining) {
             Ui.sprite(g, Ui.icon("warning"), tx, ty, 16, 16);
             int yy = ty + 1;
@@ -413,7 +427,7 @@ public class MinionScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) { // SDL3: left = 1
             for (int i = hits.size() - 1; i >= 0; i--) {
                 Hit h = hits.get(i);
                 if (Ui.inside(event.x(), event.y(), h.x(), h.y(), h.w(), h.h())) {

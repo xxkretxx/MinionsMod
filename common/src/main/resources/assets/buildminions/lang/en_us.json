@@ -80,5 +80,10 @@
   "message.buildminions.too_far": "§cThat spot is too far away.",
   "message.buildminions.will_break": "§eHeads up: the minion can only place %s more blocks, this blueprint has %s. It will break before finishing!",
   "message.buildminions.bad_blueprint": "§cThe minion could not read that blueprint.",
-  "message.buildminions.no_hologram": "§cHologram data missing (did you reconnect?). Load the blueprint again."
+  "message.buildminions.no_hologram": "§cHologram data missing (did you reconnect?). Load the blueprint again.",
+  "gui.buildminions.upgrade.0": "No upgrade (feed a Golden Apple for x2 durability)",
+  "gui.buildminions.upgrade.1": "★ Golden Apple upgrade (x2). Enchanted Golden Apple → x4",
+  "gui.buildminions.upgrade.2": "★★ Enchanted Golden Apple upgrade (x4)",
+  "message.buildminions.upgraded": "§6✦ %s upgraded! It can now place up to §e%s§6 blocks.",
+  "message.buildminions.already_upgraded": "§7This minion already has this upgrade (or a better one)."
 }

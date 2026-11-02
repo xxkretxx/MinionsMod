@@ -37,6 +37,18 @@ public enum MinionTier {
         this.chat = chat;
     }
 
+    /** Durability after a Golden Apple (x2) or Enchanted Golden Apple (x4) upgrade. */
+    public int maxBlocks(int upgrade) {
+        return maxBlocks << Math.max(0, Math.min(2, upgrade));
+    }
+
+    /** Reads the upgrade back from an item's max durability. */
+    public int upgradeFromMaxDamage(int maxDamage) {
+        if (maxDamage >= maxBlocks * 4) return 2;
+        if (maxDamage >= maxBlocks * 2) return 1;
+        return 0;
+    }
+
     public String itemName() {
         return id + "_minion";
     }
@@ -47,7 +59,7 @@ public enum MinionTier {
 
     public Block particleBlock() {
         return switch (this) {
-            case COPPER -> Blocks.COPPER_BLOCK;
+            case COPPER -> Blocks.COPPER_BLOCK.asList().getFirst();
             case GOLD -> Blocks.GOLD_BLOCK;
             case DIAMOND -> Blocks.DIAMOND_BLOCK;
         };

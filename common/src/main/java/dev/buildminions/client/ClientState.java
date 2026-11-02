@@ -44,16 +44,16 @@ public final class ClientState {
 
     public static void onState(ModNetwork.MinionState state) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof MinionScreen screen && screen.entityId() == state.entityId()) {
+        if (mc.gui.screen() instanceof MinionScreen screen && screen.entityId() == state.entityId()) {
             screen.update(state);
         } else if (state.open()) {
-            mc.setScreen(new MinionScreen(state));
+            mc.gui.setScreen(new MinionScreen(state));
         }
     }
 
     public static void onStartPlacement(ModNetwork.StartPlacement p) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof MinionScreen) mc.setScreen(null);
+        if (mc.gui.screen() instanceof MinionScreen) mc.gui.setScreen(null);
         if (!PlacementController.start(p.entityId()) && mc.player != null) {
             mc.player.sendSystemMessage(Component.translatable("message.buildminions.no_hologram"));
             Services.toServer.accept(new ModNetwork.Action(p.entityId(), ModNetwork.Action.CANCEL));

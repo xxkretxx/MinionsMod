@@ -16,6 +16,8 @@ import dev.buildminions.platform.Services;
 import dev.buildminions.schematic.Schematic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.Items;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -31,6 +33,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.util.Prediction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
@@ -60,6 +63,7 @@ public class MinionEntity extends Mob {
     private static final EntityDataAccessor<Integer> DATA_PHASE = SynchedEntityData.defineId(MinionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_USED = SynchedEntityData.defineId(MinionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_PHASE_TICKS = SynchedEntityData.defineId(MinionEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_UPGRADE = SynchedEntityData.defineId(MinionEntity.class, EntityDataSerializers.INT);
 
     public static final byte EVENT_SWING = 60;
     public static final int BREAK_DURATION = 40;
@@ -87,7 +91,7 @@ public class MinionEntity extends Mob {
     public MinionEntity(EntityType<? extends MinionEntity> type, Level level) {
         super(type, level);
         this.setPersistenceRequired();
-        this.setInvulnerable(true);
+        this.setPermanentlyInvulnerable(true);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -104,12 +108,14 @@ public class MinionEntity extends Mob {
         builder.define(DATA_PHASE, 0);
         builder.define(DATA_USED, 0);
         builder.define(DATA_PHASE_TICKS, 0);
+        builder.define(DATA_UPGRADE, 0);
     }
 
     // ================================================================= accessors
 
-    public void setup(MinionTier tier, int used, UUID owner) {
+    public void setup(MinionTier tier, int used, int upgrade, UUID owner) {
         this.entityData.set(DATA_TIER, tier.ordinal());
+        this.entityData.set(DATA_UPGRADE, Math.max(0, Math.min(2, upgrade)));
         this.entityData.set(DATA_USED, used);
         this.owner = owner;
         this.setCustomName(null);
@@ -118,7 +124,10 @@ public class MinionEntity extends Mob {
     public MinionTier getTier() { return MinionTier.byId(this.entityData.get(DATA_TIER)); }
     public MinionPhase getPhase() { return MinionPhase.byId(this.entityData.get(DATA_PHASE)); }
     public int getUsed() { return this.entityData.get(DATA_USED); }
-    public int getRemainingBlocks() { return Math.max(0, getTier().maxBlocks - getUsed()); }
+    /** 0 = none, 1 = Golden Apple (x2 durability), 2 = Enchanted Golden Apple (x4). */
+    public int getUpgrade() { return this.entityData.get(DATA_UPGRADE); }
+    public int getMaxBlocks() { return getTier().maxBlocks(getUpgrade()); }
+    public int getRemainingBlocks() { return Math.max(0, getMaxBlocks() - getUsed()); }
     /** Ticks since the phase last changed (synced, used for animations). */
     public int getPhaseTicks() { return this.entityData.get(DATA_PHASE_TICKS); }
 
@@ -154,6 +163,8 @@ public class MinionEntity extends Mob {
             if (getPhase() == MinionPhase.BUILDING && random.nextInt(4) == 0) {
                 MinionTier t = getTier();
                 level().addParticle(ParticleTypes.ELECTRIC_SPARK, getX() + (random.nextDouble() - .5) * .4, getY() + .1, getZ() + (random.nextDouble() - .5) * .4, 0, -0.05, 0);
+                if (getUpgrade() > 0 && random.nextInt(3) == 0)
+                    level().addParticle(getUpgrade() == 2 ? ParticleTypes.ENCHANT : ParticleTypes.WAX_ON, getX(), getY() + 1.0, getZ(), (random.nextDouble() - .5) * .4, 0.1, (random.nextDouble() - .5) * .4);
                 if (t == MinionTier.DIAMOND && random.nextInt(3) == 0)
                     level().addParticle(ParticleTypes.END_ROD, getX(), getY() + 1.1, getZ(), 0, 0.02, 0);
             }
@@ -232,7 +243,7 @@ public class MinionEntity extends Mob {
         placedThisJob++;
         int used = getUsed() + 1;
         this.entityData.set(DATA_USED, used);
-        if (used >= getTier().maxBlocks) {
+        if (used >= getMaxBlocks()) {
             setPhase(MinionPhase.BREAKING);
             level.playSound(null, blockPosition(), SoundEvents.IRON_GOLEM_DAMAGE, SoundSource.NEUTRAL, 1f, 1.6f);
         }
@@ -259,7 +270,7 @@ public class MinionEntity extends Mob {
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getTier().particleBlock().defaultBlockState()), getX(), getY() + 0.6, getZ(), 60, .3, .4, .3, .15);
         level.sendParticles(ParticleTypes.POOF, getX(), getY() + 0.6, getZ(), 15, .3, .3, .3, .05);
         dropStored(level);
-        notifyOwner(level, Component.translatable("message.buildminions.broke", Component.translatable(getTier().translationKey()), getTier().maxBlocks));
+        notifyOwner(level, Component.translatable("message.buildminions.broke", Component.translatable(getTier().translationKey()), getMaxBlocks()));
         discard();
     }
 
@@ -274,6 +285,21 @@ public class MinionEntity extends Mob {
             return InteractionResult.SUCCESS;
         }
         if (getPhase() == MinionPhase.BREAKING) return InteractionResult.PASS;
+        ItemStack held = player.getItemInHand(hand);
+        int level = held.is(Items.ENCHANTED_GOLDEN_APPLE) ? 2 : held.is(Items.GOLDEN_APPLE) ? 1 : 0;
+        if (level > 0) {
+            if (getUpgrade() >= level) {
+                sp.sendSystemMessage(Component.translatable("message.buildminions.already_upgraded"));
+                return InteractionResult.FAIL;
+            }
+            this.entityData.set(DATA_UPGRADE, level);
+            if (!player.hasInfiniteMaterials()) held.shrink(1);
+            ServerLevel sl = (ServerLevel) level();
+            sl.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, getX(), getY() + 0.8, getZ(), 40, .3, .5, .3, .4);
+            sl.playSound(null, blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 1f, level == 2 ? 0.8f : 1.2f);
+            sp.sendSystemMessage(Component.translatable("message.buildminions.upgraded", Component.translatable(getTier().translationKey()), getMaxBlocks()));
+            return InteractionResult.SUCCESS;
+        }
         sendState(sp, true);
         return InteractionResult.SUCCESS;
     }
@@ -400,9 +426,10 @@ public class MinionEntity extends Mob {
 
     private void pickup(ServerPlayer player) {
         ItemStack stack = new ItemStack(ModContent.MINION_ITEMS.get(getTier()).get());
-        stack.setDamageValue(Math.min(getUsed(), getTier().maxBlocks - 1));
+        stack.set(DataComponents.MAX_DAMAGE, getMaxBlocks());
+        stack.setDamageValue(Math.min(getUsed(), getMaxBlocks() - 1));
         dropStoredTo(player);
-        if (!player.getInventory().add(stack)) player.drop(stack, false);
+        if (!player.getInventory().add(stack)) player.drop(stack, false, Prediction.SERVER_ONLY);
         playSound(SoundEvents.ITEM_PICKUP, 1f, 0.8f);
         discard();
     }
@@ -413,7 +440,7 @@ public class MinionEntity extends Mob {
             while (left > 0) {
                 int n = Math.min(left, e.getKey().getDefaultMaxStackSize());
                 ItemStack st = new ItemStack(e.getKey(), n);
-                if (!player.getInventory().add(st)) player.drop(st, false);
+                if (!player.getInventory().add(st)) player.drop(st, false, Prediction.SERVER_ONLY);
                 left -= n;
             }
         }
@@ -450,7 +477,7 @@ public class MinionEntity extends Mob {
             name = schematic.name;
         }
         int total = queue != null ? queue.size() : placeable;
-        Services.toPlayer.accept(player, new ModNetwork.MinionState(getId(), getTier().ordinal(), getPhase().ordinal(), getUsed(),
+        Services.toPlayer.accept(player, new ModNetwork.MinionState(getId(), getTier().ordinal(), getPhase().ordinal(), getUsed(), getUpgrade(), getMaxBlocks(),
                 queueIndex, total, name, sx, sy, sz, placeable, player.hasInfiniteMaterials(), open, lines));
     }
 
@@ -462,6 +489,7 @@ public class MinionEntity extends Mob {
         out.putInt("Tier", getTier().ordinal());
         out.putInt("Phase", getPhase().ordinal());
         out.putInt("Used", getUsed());
+        out.putInt("Upgrade", getUpgrade());
         out.putBoolean("CreativeJob", creativeJob);
         if (owner != null) out.store("Owner", UUIDUtil.CODEC, owner);
         if (schematic != null) out.store("Blueprint", CompoundTag.CODEC, schematic.save());
@@ -479,6 +507,7 @@ public class MinionEntity extends Mob {
         super.readAdditionalSaveData(in);
         this.entityData.set(DATA_TIER, in.getIntOr("Tier", 0));
         this.entityData.set(DATA_USED, in.getIntOr("Used", 0));
+        this.entityData.set(DATA_UPGRADE, in.getIntOr("Upgrade", 0));
         this.creativeJob = in.getBooleanOr("CreativeJob", false);
         this.owner = in.read("Owner", UUIDUtil.CODEC).orElse(null);
         this.schematic = in.read("Blueprint", CompoundTag.CODEC).map(tag -> {

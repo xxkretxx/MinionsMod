@@ -10,14 +10,9 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 25 }
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && (./gradlew :fabric:compileJava :neoforge:compileJava --continue || true)
-      - name: vanilla data
+      - name: run server and check data loading
         run: |
-          MC=$(find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft.*(merged|client)' | grep -v sources | head -1)
-          echo "MC=$MC"
-          unzip -l "$MC" | grep -E "data/minecraft/(recipe|recipes)/" | head -5
-          unzip -l "$MC" | grep -E "data/minecraft/advancement.*/recipes/" | head -5
-          for f in $(unzip -l "$MC" | grep -oE "data/minecraft/[a-z_/]*(iron_pickaxe|lodestone|clock)\.json" | head -6); do echo "===== $f"; unzip -p "$MC" "$f"; echo; done
-          mkdir -p out
-      - uses: actions/upload-artifact@v4
-        with: { name: probe, path: out }
+          chmod +x gradlew
+          mkdir -p fabric/run && echo "eula=true" > fabric/run/eula.txt
+          (timeout 240 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
+          grep -iE "buildminions|error|exception|failed|Done \(" server.log | grep -v "^\s*at " | head -80

@@ -36,10 +36,14 @@ public class BuildMinionsFabric implements ModInitializer {
 
         // networking
         for (ModNetwork.Serverbound<?> p : ModNetwork.SERVERBOUND) registerServerbound(p);
-        for (ModNetwork.Clientbound<?> p : ModNetwork.CLIENTBOUND) PayloadTypeRegistry.clientboundPlay().register(p.type(), p.codec());
+        for (ModNetwork.Clientbound<?> p : ModNetwork.CLIENTBOUND) registerClientboundType(p);
         Services.toPlayer = ServerPlayNetworking::send;
 
         BuildMinions.LOG.info("Build Minions ready – go craft a minion!");
+    }
+
+    private static <T extends CustomPacketPayload> void registerClientboundType(ModNetwork.Clientbound<T> p) {
+        PayloadTypeRegistry.clientboundPlay().register(p.type(), p.codec());
     }
 
     private static <T extends CustomPacketPayload> void registerServerbound(ModNetwork.Serverbound<T> p) {

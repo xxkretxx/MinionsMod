@@ -38,13 +38,35 @@ public final class SchematicReader {
         String fileName = file.getFileName().toString();
         String lower = fileName.toLowerCase(Locale.ROOT);
         String name = fileName.contains(".") ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
-        CompoundTag root = NbtIo.readCompressed(file, NbtAccounter.create(256L * 1024 * 1024));
+        CompoundTag root = readNbt(file);
         Schematic s;
         if (lower.endsWith(".litematic")) s = litematic(root, name);
         else if (lower.endsWith(".schem")) s = sponge(root, name);
         else s = vanilla(root, name);
         if (s.placeableCount() > Schematic.MAX_BLOCKS) throw new IOException("Blueprint has more than " + Schematic.MAX_BLOCKS + " blocks");
         return s;
+    }
+
+    /** Accepts gzip (normal), zlib-deflated and uncompressed NBT. */
+    private static CompoundTag readNbt(Path file) throws IOException {
+        byte[] data = java.nio.file.Files.readAllBytes(file);
+        if (data.length < 3) throw new IOException("File is empty");
+        NbtAccounter acc = NbtAccounter.create(256L * 1024 * 1024);
+        int b0 = data[0] & 0xFF, b1 = data[1] & 0xFF;
+        if (b0 == 0x1F && b1 == 0x8B) {
+            return NbtIo.readCompressed(new java.io.ByteArrayInputStream(data), acc);
+        }
+        if (b0 == 0x0A) { // raw NBT starting with a compound tag
+            return NbtIo.read(new java.io.DataInputStream(new java.io.ByteArrayInputStream(data)), acc);
+        }
+        if (b0 == 0x78) { // zlib
+            try (var in = new java.io.DataInputStream(new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(data)))) {
+                return NbtIo.read(in, acc);
+            }
+        }
+        if (b0 == 'P' && b1 == 'K') throw new IOException("This is a .zip archive – unpack it first and use the file inside");
+        if (b0 == '<' || b0 == '{') throw new IOException("This is a web page / text file, not a schematic (download it again)");
+        throw new IOException("Unknown file format – not a Litematica, WorldEdit or structure file");
     }
 
     // ------------------------------------------------------------------ Litematica

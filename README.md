@@ -10,19 +10,42 @@ Craft a minion, give it a schematic, deliver the materials, then position the ho
 
 The numbers live in `common/.../minion/MinionTier.java`, change them to rebalance.
 
+## Crafting
+`A` = amethyst shard, `R` = redstone, `E` = ender pearl, `C` = Minion Core
+
+**Minion Core**
+```
+A R A
+R E R
+A R A
+```
+**Copper / Gold / Diamond Minion** (`i` = copper ingot / gold ingot / diamond, `B` = block of copper / gold / diamond)
+```
+i B i
+i C i
+i . i
+```
+The recipes unlock in the recipe book once you have redstone (core) or a Minion Core (minions).
+They are also in the mod's creative tab.
+
+## Upgrades
+Right-click a minion with:
+- **Golden Apple**: durability x2 (Copper 1,200 · Gold 600 · Diamond **10,000**)
+- **Enchanted Golden Apple**: durability x4 (Copper 2,400 · Gold 1,200 · Diamond **20,000**)
+
+The upgrade stays when you pick the minion up. Upgraded minions show ★ / ★★ in the GUI and give off sparkles.
+
 ## How to play
-1. **Crafting:** `Minion Core` = 4× amethyst shard + 4× redstone + ender pearl in the middle.
-   A minion = core in the middle, the tier's block on top, 6 ingots/diamonds around it (see `data/buildminions/recipe`).
-2. Right-click a block with the minion to place it. **Shift + right-click** picks it back up (it keeps its durability).
-3. Put `.litematic` (Litematica), `.schem` (WorldEdit/Sponge) or `.nbt` (structure block) files into `.minecraft/schematics`.
-4. Right-click the minion and the GUI opens:
+1. Right-click a block with the minion to place it. **Shift + right-click** picks it back up (it keeps its durability).
+2. Put `.litematic` (Litematica), `.schem` (WorldEdit/Sponge) or `.nbt` (structure block) files into `.minecraft/schematics`.
+   Compressed and uncompressed files both work.
+3. Right-click the minion and the GUI opens:
    - **Blueprints**: file list with pages, a preview (size, block count, build time), *Load Blueprint*
-   - **Materials**: list of required materials (have/need, pages), *Deposit from Inventory*
-   - **Overview**: size, time, durability, and the big **ACCEPT BUILD** slot in the middle
-5. After accepting, the hologram appears: **R** rotate, **M** mirror, **↑/↓** height, **K** lock, **Enter** build, **Backspace** cancel.
-   Red hologram blocks = something is in the way.
-6. The minion flies around and places blocks from the bottom up, with a hammer animation. When its durability runs out
-   it shakes, sparks and falls apart, and the leftover materials drop on the ground.
+   - **Materials**: required materials (have/need, pages), *Deposit from Inventory*
+   - **Overview**: size, time, durability and the big **ACCEPT BUILD** slot in the middle
+4. After accepting, the hologram appears (it works with shader packs too): **R** rotate, **M** mirror, **↑/↓** height,
+   **K** lock, **Enter** build, **Backspace** cancel. Red blocks = something is in the way.
+5. The minion flies around and builds from the bottom up. When its durability runs out it falls apart and drops the leftover materials.
 
 In creative mode materials are not required.
 
@@ -34,15 +57,11 @@ Requires **JDK 25**.
 The jars end up in `fabric/build/libs/` and `neoforge/build/libs/`.
 You can also push the project to GitHub. The `.github/workflows/build.yml` workflow builds both jars on its own (Actions → artifacts).
 
-## Important: this code has not been compiled yet
-The code was written for the 26.3 API (unobfuscated Mojang names, `GuiGraphicsExtractor`, `SubmitNodeCollector`,
-`Identifier`, SDL3 key codes), but in the environment where it was created there was no access to the Minecraft/Fabric/NeoForge
-servers, so **it was never compiled**. Expect a few small fixes on the first `./gradlew build`.
-Places to check first if something doesn't compile:
-- `client/MinionScreen.java`: `g.item(...)`, `g.text(..., FormattedCharSequence ...)`, `mouseClicked(MouseButtonEvent, boolean)`, `extractBackground`
-- `minion/MinionEntity.java`: `ValueInput/ValueOutput` methods (`getBooleanOr`, `putBoolean`), and whether a given `SoundEvents.X` is a `Holder` (`.value()`)
-- `neoforge/BuildMinionsNeoForgeClient.java`: the hologram rendering event (`SubmitCustomGeometryEvent`) and `RegisterGuiLayersEvent`
-- versions in `gradle.properties` (latest ones at fabricmc.net/develop and projects.neoforged.net)
+## Status
+The project **compiles** on Fabric and NeoForge 26.3 (GitHub Actions builds both jars on every push:
+Actions tab -> latest run -> `build-minions-jars`). It has **not been play-tested in-game yet**, so runtime bugs
+(rendering, GUI layout, balance) may still show up. The NeoForge hologram hook (`SubmitCustomGeometryEvent`) is the
+part most worth checking in game.
 
 ## Compatibility (honestly)
 - **Fabric 26.3**: yes (also runs on **Quilt**, which loads Fabric mods).
