@@ -36,7 +36,7 @@ final class DebugProbe {
                         System.out.println("PROBE fix wool=" + net.minecraft.util.datafix.DataFixers.getDataFixer().update(net.minecraft.util.datafix.fixes.References.BLOCK_STATE, w, 3465, net.minecraft.SharedConstants.WORLD_VERSION).getValue());
                     }
                     Schematic sc = SchematicReader.read(p);
-                    for (var st : sc.palette) if (!st.getProperties().isEmpty()) { System.out.println("PROBE state " + BlockStates.toString(st)); }
+                    int shown = 0; for (var st : sc.palette) if (!st.getProperties().isEmpty() && shown++ < 3) { System.out.println("PROBE state " + BlockStates.toString(st)); }
                     Schematic back = Schematic.load(sc.save());
                     System.out.println("PROBE roundtrip placeable=" + back.placeableCount() + " same=" + back.palette.equals(sc.palette));
                     System.out.println("PROBE chain=" + BlockStates.toString(BlockStates.parse("minecraft:iron_chain[axis=x]")) + " oldchain=" + BlockStates.toString(SchematicReader.readState(SchematicReader.stateStringToTag("minecraft:chain[axis=x]"), 3465)));
