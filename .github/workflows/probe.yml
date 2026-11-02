@@ -11,20 +11,13 @@ jobs:
         with: { distribution: temurin, java-version: 25 }
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew && (./gradlew :fabric:compileJava :neoforge:compileJava --continue || true)
-      - name: javap
+      - name: vanilla data
         run: |
           MC=$(find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft.*(merged|client)' | grep -v sources | head -1)
-          NEO=$(find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'neoforge-26.*(universal|merged)|neoforge.*26\.3.*\.jar' | grep -v sources | head -3 | tr '\n' ':')
-          echo "MC=$MC"; echo "NEO=$NEO"
-          find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft|neoforge' | grep -v sources | head -40
+          echo "MC=$MC"
+          unzip -l "$MC" | grep -E "data/minecraft/(recipe|recipes)/" | head -5
+          unzip -l "$MC" | grep -E "data/minecraft/advancement.*/recipes/" | head -5
+          for f in $(unzip -l "$MC" | grep -oE "data/minecraft/[a-z_/]*(iron_pickaxe|lodestone|clock)\.json" | head -6); do echo "===== $f"; unzip -p "$MC" "$f"; echo; done
           mkdir -p out
-          for c in net.minecraft.client.renderer.rendertype.RenderTypes com.mojang.blaze3d.vertex.VertexConsumer net.minecraft.client.renderer.LightTexture net.minecraft.client.renderer.texture.OverlayTexture net.minecraft.client.renderer.LightCoordsUtil net.minecraft.util.LightCoordsUtil; do
-            echo "===== $c" >> out/mc.txt; javap -public -constants -cp "$MC" "$c" >> out/mc.txt 2>&1 || true; done
-          for c in net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent net.neoforged.neoforge.client.event.RenderLevelStageEvent \
-            net.neoforged.neoforge.client.event.RegisterGuiLayersEvent net.neoforged.neoforge.client.gui.GuiLayer net.neoforged.neoforge.client.network.ClientPacketDistributor \
-            net.neoforged.neoforge.network.PacketDistributor net.neoforged.neoforge.network.registration.PayloadRegistrar net.neoforged.neoforge.client.event.ClientTickEvent\$Post; do
-            echo "===== $c" >> out/neo.txt; javap -public -cp "$NEO" "$c" >> out/neo.txt 2>&1 || true; done
-          for j in $(echo $NEO | tr ':' ' '); do unzip -l "$j" | grep -oE 'net/neoforged/neoforge/client/event/[A-Za-z$]*\.class' ; done | sort -u > out/neo-events.txt || true
-          cat out/mc.txt out/neo.txt out/neo-events.txt
       - uses: actions/upload-artifact@v4
         with: { name: probe, path: out }
