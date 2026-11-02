@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "iBi",
+    "iCi",
+    "i i"
+  ],
+  "key": {
+    "i": "minecraft:diamond",
+    "B": "minecraft:diamond_block",
+    "C": "buildminions:minion_core"
+  },
+  "result": {
+    "id": "buildminions:diamond_minion",
+    "count": 1
+  }
+}

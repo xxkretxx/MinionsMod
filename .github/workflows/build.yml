@@ -1,0 +1,28 @@
+name: build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: build
+        run: chmod +x gradlew && ./gradlew build --continue 2>&1 | tee build.log; grep -q "BUILD SUCCESSFUL" build.log
+      - name: compile errors
+        if: failure()
+        run: grep -A3 "error:" build.log | head -300
+      - name: server test (fabric)
+        run: |
+          mkdir -p fabric/runs/server && echo "eula=true" > fabric/runs/server/eula.txt
+          (timeout 300 ./gradlew :fabric:runServer --args="nogui" > server.log 2>&1 || true)
+          grep -E "Done \(|buildminions|ERROR|Exception" server.log | head -40
+          grep -q "Done (" server.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-minions-jars
+          path: |
+            fabric/build/libs/*.jar
+            neoforge/build/libs/*.jar
+            forge/build/libs/*.jar
