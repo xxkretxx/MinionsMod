@@ -39,7 +39,26 @@ public final class GhostRenderer {
 
         poseStack.pushPose();
         poseStack.translate(a.getX() - camera.x, a.getY() - camera.y, a.getZ() - camera.z);
-        collector.submitCustomGeometry(poseStack, type, (pose, buf) -> {
+        collector.submitCustomGeometry(poseStack, type, (pose, buf) -> drawAll(pose, buf, ghosts, b, alpha, locked));
+        poseStack.popPose();
+    }
+
+    /** Draws through the game's buffer source (used where no submit collector is available). */
+    public static void renderImmediate(PoseStack poseStack, Vec3 camera) {
+        if (!PlacementController.active()) return;
+        var src = net.minecraft.client.Minecraft.getInstance().renderBuffers().bufferSource();
+        BlockPos a = PlacementController.anchor();
+        float pulse = 0.55f + 0.15f * Mth.sin((System.currentTimeMillis() % 100_000L) / 240f);
+        RenderType type = RenderTypes.entityTranslucent(TEXTURE);
+        poseStack.pushPose();
+        poseStack.translate(a.getX() - camera.x, a.getY() - camera.y, a.getZ() - camera.z);
+        drawAll(poseStack.last(), src.getBuffer(type), PlacementController.ghosts(), PlacementController.bounds(), (int) (pulse * 255), PlacementController.locked());
+        poseStack.popPose();
+        src.endBatch(type);
+    }
+
+    private static void drawAll(PoseStack.Pose pose, VertexConsumer buf, List<PlacementController.Ghost> ghosts, int[] b, int alpha, boolean locked) {
+        {
             for (int i = 0; i < ghosts.size(); i++) {
                 PlacementController.Ghost g = ghosts.get(i);
                 int color;
@@ -54,8 +73,7 @@ public final class GhostRenderer {
             int frame = locked ? ARGB.color(240, 120, 255, 160) : ARGB.color(240, 250, 214, 130);
             frame(pose, buf, b[0], b[1], b[2], b[3] + 1, b[4] + 1, b[5] + 1, 0.04f, frame);
             box(pose, buf, -0.1f, -0.02f, -0.1f, 1.1f, 0.02f, 1.1f, ARGB.color(170, 250, 214, 130), true);
-        });
-        poseStack.popPose();
+        }
     }
 
     private static void frame(PoseStack.Pose pose, VertexConsumer buf, float x0, float y0, float z0, float x1, float y1, float z1, float t, int c) {

@@ -8,7 +8,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
-/** Block state <-> "minecraft:oak_stairs[facing=east,half=top]" strings (robust across versions). */
+/** Block state to/from "minecraft:oak_stairs[facing=east,half=top]" strings (robust across versions). */
 public final class BlockStates {
     private BlockStates() {}
 

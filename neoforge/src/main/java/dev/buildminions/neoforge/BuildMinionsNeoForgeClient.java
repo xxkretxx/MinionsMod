@@ -18,7 +18,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -37,7 +37,7 @@ public class BuildMinionsNeoForgeClient {
 
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> PlacementController.tick(Minecraft.getInstance()));
         // Hologram. NeoForge exposes the level submit phase through SubmitCustomGeometryEvent.
-        NeoForge.EVENT_BUS.addListener(SubmitCustomGeometryEvent.class, e ->
-                GhostRenderer.render(e.getPoseStack(), e.getSubmitNodeCollector(), e.getLevelRenderState().cameraRenderState.pos));
+        NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterEntities.class, e ->
+                GhostRenderer.renderImmediate(e.getPoseStack(), e.getLevelRenderState().cameraRenderState.pos));
     }
 }
