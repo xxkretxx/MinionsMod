@@ -34,6 +34,6 @@ jobs:
             net.neoforged.neoforge.network.PacketDistributor net.neoforged.neoforge.network.registration.PayloadRegistrar net.neoforged.neoforge.client.event.ClientTickEvent\$Post; do
             echo "===== $c" >> out/neo.txt; javap -public -cp "$NEO" "$c" >> out/neo.txt 2>&1 || true; done
           for j in $(echo $NEO | tr ':' ' '); do unzip -l "$j" | grep -oE 'net/neoforged/neoforge/client/event/[A-Za-z$]*\.class' ; done | sort -u > out/neo-events.txt || true
-          wc -l out/*
+          cat out/mc.txt out/neo.txt out/neo-events.txt
       - uses: actions/upload-artifact@v4
         with: { name: probe, path: out }
