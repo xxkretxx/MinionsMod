@@ -62,7 +62,7 @@ public final class ModNetwork {
 
     /** Simple button actions from the minion GUI. */
     public record Action(int entityId, int action) implements CustomPacketPayload {
-        public static final int REFRESH = 0, DEPOSIT = 1, ACCEPT = 2, CANCEL = 3, PICKUP = 4, CLEAR = 5;
+        public static final int REFRESH = 0, DEPOSIT = 1, ACCEPT = 2, CANCEL = 3, PICKUP = 4, CLEAR = 5, CRAFT_ALL = 6, CLEAR_QUEUE = 7;
         public static final Type<Action> TYPE = new Type<>(BuildMinions.id("action"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Action> CODEC = CustomPacketPayload.codec(Action::write, Action::new);
 
@@ -91,10 +91,14 @@ public final class ModNetwork {
 
     public record MaterialLine(Item item, int need, int have) {}
 
+    /** Workshop info: what can be crafted now, the queue and spare raw materials. */
+    public record CraftLine(Item item, int count, int total, String note) {}
+
     /** Snapshot of a minion for the GUI. {@code open} = open the screen (otherwise just refresh it). */
     public record MinionState(int entityId, int tier, int phase, int used, int upgrade, int maxBlocks, int progress, int total,
                               String blueprint, int sizeX, int sizeY, int sizeZ, int placeable,
-                              boolean creative, boolean open, List<MaterialLine> materials) implements CustomPacketPayload {
+                              boolean creative, boolean open, List<MaterialLine> materials,
+                              boolean workstation, float craftProgress, List<CraftLine> craftable, List<CraftLine> queue, List<CraftLine> raw) implements CustomPacketPayload {
         public static final Type<MinionState> TYPE = new Type<>(BuildMinions.id("minion_state"));
         public static final StreamCodec<RegistryFriendlyByteBuf, MinionState> CODEC = CustomPacketPayload.codec(MinionState::write, MinionState::read);
 
@@ -108,7 +112,10 @@ public final class ModNetwork {
             int n = buf.readVarInt();
             List<MaterialLine> mats = new ArrayList<>(n);
             for (int i = 0; i < n; i++) mats.add(new MaterialLine(ITEM.decode(buf), buf.readVarInt(), buf.readVarInt()));
-            return new MinionState(id, tier, phase, used, upgrade, maxBlocks, progress, total, bp, sx, sy, sz, placeable, creative, open, mats);
+            boolean ws = buf.readBoolean();
+            float cp = buf.readFloat();
+            return new MinionState(id, tier, phase, used, upgrade, maxBlocks, progress, total, bp, sx, sy, sz, placeable, creative, open, mats,
+                    ws, cp, readLines(buf), readLines(buf), readLines(buf));
         }
 
         void write(RegistryFriendlyByteBuf buf) {
@@ -120,9 +127,29 @@ public final class ModNetwork {
             buf.writeBoolean(creative); buf.writeBoolean(open);
             buf.writeVarInt(materials.size());
             for (MaterialLine m : materials) { ITEM.encode(buf, m.item()); buf.writeVarInt(m.need()); buf.writeVarInt(m.have()); }
+            buf.writeBoolean(workstation);
+            buf.writeFloat(craftProgress);
+            writeLines(buf, craftable); writeLines(buf, queue); writeLines(buf, raw);
         }
 
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    static List<CraftLine> readLines(RegistryFriendlyByteBuf buf) {
+        int n = Math.min(buf.readVarInt(), 256);
+        List<CraftLine> out = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) out.add(new CraftLine(ITEM.decode(buf), buf.readVarInt(), buf.readVarInt(), buf.readUtf(128)));
+        return out;
+    }
+
+    static void writeLines(RegistryFriendlyByteBuf buf, List<CraftLine> lines) {
+        int n = Math.min(lines.size(), 256);
+        buf.writeVarInt(n);
+        for (int i = 0; i < n; i++) {
+            CraftLine l = lines.get(i);
+            ITEM.encode(buf, l.item()); buf.writeVarInt(l.count()); buf.writeVarInt(l.total());
+            buf.writeUtf(l.note().length() > 128 ? l.note().substring(0, 128) : l.note(), 128);
+        }
     }
 
     /** Tells the owner to start positioning the hologram. */

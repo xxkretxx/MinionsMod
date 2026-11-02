@@ -35,14 +35,14 @@ import net.minecraft.world.item.ItemStack;
  */
 public class MinionScreen extends Screen {
     private static final int W = 316, H = 206;
-    private enum Tab { BLUEPRINTS, MATERIALS, OVERVIEW }
+    private enum Tab { BLUEPRINTS, MATERIALS, WORKSHOP, OVERVIEW }
 
     private record Hit(int x, int y, int w, int h, Runnable action) {}
     private record FileEntry(Path path, String label) {}
 
     private ModNetwork.MinionState state;
     private Tab tab;
-    private int filePage, matPage, selected = -1;
+    private int filePage, matPage, craftPage, selected = -1;
     private List<FileEntry> files = List.of();
     private boolean scanning;
     private CompletableFuture<Schematic> loading;
@@ -151,22 +151,23 @@ public class MinionScreen extends Screen {
         switch (tab) {
             case BLUEPRINTS -> drawBlueprints(g, mouseX, mouseY);
             case MATERIALS -> drawMaterials(g, mouseX, mouseY);
+            case WORKSHOP -> drawWorkshop(g, mouseX, mouseY);
             case OVERVIEW -> drawOverview(g, mouseX, mouseY);
         }
         if (pendingTooltip != null) g.setTooltipForNextFrame(font, pendingTooltip, mouseX, mouseY);
     }
 
     private void drawTabs(GuiGraphicsExtractor g, int mx, int my) {
-        String[] keys = {"gui.buildminions.tab.blueprints", "gui.buildminions.tab.materials", "gui.buildminions.tab.overview"};
-        String[] icons = {"file", "chest", "clock"};
-        for (int i = 0; i < 3; i++) {
+        String[] keys = {"gui.buildminions.tab.blueprints", "gui.buildminions.tab.materials", "gui.buildminions.tab.workshop", "gui.buildminions.tab.overview"};
+        String[] icons = {"file", "chest", "anvil", "clock"};
+        for (int i = 0; i < 4; i++) {
             Tab t = Tab.values()[i];
-            int x = left + 10 + i * 100, y = top - 20, w = 96, h = 22;
+            int x = left + 8 + i * 75, y = top - 20, w = 74, h = 22;
             boolean sel = tab == t;
             boolean hov = Ui.inside(mx, my, x, y, w, h);
             Ui.sprite(g, sel ? Ui.TAB_SELECTED : Ui.TAB, x, sel ? y : y + 3, w, sel ? h + 2 : h - 3);
-            Ui.sprite(g, Ui.icon(icons[i]), x + 6, y + (sel ? 3 : 5), 16, 16);
-            g.text(font, Component.translatable(keys[i]), x + 26, y + (sel ? 7 : 9), sel ? Ui.BRASS : hov ? Ui.WHITE : Ui.MUTED);
+            Ui.sprite(g, Ui.icon(icons[i]), x + 3, y + (sel ? 3 : 5), 16, 16);
+            g.text(font, Component.translatable(keys[i]), x + 21, y + (sel ? 7 : 9), sel ? Ui.BRASS : hov ? Ui.WHITE : Ui.MUTED);
             hits.add(new Hit(x, y, w, h, () -> { tab = t; }));
         }
     }
@@ -284,7 +285,7 @@ public class MinionScreen extends Screen {
         }
         pager(g, mx, my, left + 14, top + 160, W - 28, matPage, pages, p -> matPage = p);
 
-        boolean collecting = phase() == MinionPhase.COLLECTING;
+        boolean collecting = phase() == MinionPhase.COLLECTING || phase() == MinionPhase.CRAFTING;
         actionButton(g, mx, my, Component.translatable("gui.buildminions.deposit"), left + 14, top + 176, 140, 20, collecting && !state.creative(),
                 () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.DEPOSIT)));
         int need = needTotal(), have = need - missing();
@@ -294,7 +295,86 @@ public class MinionScreen extends Screen {
             g.text(font, Component.translatable("gui.buildminions.creative"), left + 162, top + 166, Ui.YELLOW);
     }
 
-    // ---------------------------------------------------------------- page 3
+    // ---------------------------------------------------------------- page 3: workshop
+
+    private void drawWorkshop(GuiGraphicsExtractor g, int mx, int my) {
+        if (state.blueprint().isEmpty()) { emptyHint(g, "gui.buildminions.no_blueprint"); return; }
+        if (!state.workstation()) {
+            Ui.sprite(g, Ui.INSET, left + 14, top + 38, W - 28, 152);
+            Ui.sprite(g, Ui.icon("anvil"), left + W / 2 - 16, top + 52, 32, 32);
+            int y = top + 94;
+            for (var line : font.split(Component.translatable("gui.buildminions.no_workstation"), W - 60)) {
+                g.text(font, line, left + W / 2 - font.width(line) / 2, y, Ui.TEXT); y += 11;
+            }
+            g.centeredText(font, Component.translatable("gui.buildminions.workstation_recipe"), left + W / 2, top + 150, Ui.MUTED);
+            return;
+        }
+        // left: what can be crafted right now
+        int lx = left + 14, ly = top + 36;
+        g.text(font, Component.translatable("gui.buildminions.can_craft").withStyle(ChatFormatting.BOLD), lx, ly, Ui.BRASS);
+        List<ModNetwork.CraftLine> can = state.craftable();
+        int per = 5, pages = Math.max(1, (can.size() + per - 1) / per);
+        craftPage = Math.min(craftPage, pages - 1);
+        if (can.isEmpty()) {
+            int yy = ly + 14;
+            for (var line : font.split(Component.translatable("gui.buildminions.nothing_craftable"), 140)) { g.text(font, line, lx, yy, Ui.MUTED); yy += 10; }
+        }
+        for (int i = 0; i < per; i++) {
+            int idx = craftPage * per + i;
+            if (idx >= can.size()) break;
+            ModNetwork.CraftLine l = can.get(idx);
+            int y = ly + 12 + i * 23;
+            Ui.sprite(g, Ui.ROW, lx, y, 142, 22);
+            Ui.sprite(g, Ui.SLOT, lx + 2, y + 2, 18, 18);
+            ItemStack st = new ItemStack(l.item());
+            g.item(st, lx + 3, y + 3);
+            g.text(font, Ui.trim(font, st.getHoverName().getString(), 84), lx + 24, y + 3, Ui.WHITE);
+            g.text(font, "+" + Ui.num(l.count()), lx + 24, y + 12, Ui.GREEN);
+            Ui.sprite(g, Ui.icon(l.note().contains("smelt") ? "flame" : "anvil"), lx + 122, y + 3, 16, 16);
+        }
+        pager(g, mx, my, lx, top + 130, 142, craftPage, pages, p -> craftPage = p);
+
+        // right: the queue + spare raw materials
+        int rx = left + 162, rw = W - 176;
+        g.text(font, Component.translatable("gui.buildminions.queue").withStyle(ChatFormatting.BOLD), rx, ly, Ui.BRASS);
+        Ui.sprite(g, Ui.INSET, rx, ly + 11, rw, 74);
+        List<ModNetwork.CraftLine> q = state.queue();
+        if (q.isEmpty()) g.text(font, Component.translatable("gui.buildminions.queue_empty"), rx + 5, ly + 16, Ui.MUTED);
+        for (int i = 0; i < Math.min(3, q.size()); i++) {
+            ModNetwork.CraftLine l = q.get(i);
+            int y = ly + 14 + i * 23;
+            ItemStack st = new ItemStack(l.item());
+            g.item(st, rx + 4, y);
+            g.text(font, Ui.trim(font, st.getHoverName().getString(), rw - 30), rx + 24, y, Ui.WHITE);
+            float pct = i == 0 ? ((l.total() - l.count()) + state.craftProgress()) / Math.max(1f, l.total()) : (l.total() - l.count()) / (float) Math.max(1, l.total());
+            Ui.progress(g, rx + 24, y + 11, rw - 30, 6, pct, i == 0 ? Ui.PROGRESS_FILL : Ui.PROGRESS_BLUE);
+        }
+        if (q.size() > 3) g.text(font, "+" + (q.size() - 3), rx + rw - 18, ly + 76, Ui.MUTED);
+
+        g.text(font, Component.translatable("gui.buildminions.spare"), rx, ly + 90, Ui.MUTED);
+        List<ModNetwork.CraftLine> raw = state.raw();
+        for (int i = 0; i < Math.min(6, raw.size()); i++) {
+            ModNetwork.CraftLine l = raw.get(i);
+            int x = rx + i * 23, y = ly + 101;
+            Ui.sprite(g, Ui.SLOT, x, y, 18, 18);
+            ItemStack st = new ItemStack(l.item());
+            g.item(st, x + 1, y + 1);
+            String c = l.count() > 999 ? (l.count() / 1000) + "k" : String.valueOf(l.count());
+            g.text(font, c, x + 18 - font.width(c), y + 10, Ui.WHITE);
+            hitTooltip(x, y, 18, 18, st.getHoverName().copy().append(" ×" + Ui.num(l.count())));
+        }
+
+        boolean canQueue = (phase() == MinionPhase.COLLECTING || phase() == MinionPhase.CRAFTING) && !can.isEmpty();
+        actionButton(g, mx, my, Component.translatable("gui.buildminions.craft_all"), left + 14, top + 176, 92, 20, canQueue,
+                () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.CRAFT_ALL)));
+        actionButton(g, mx, my, Component.translatable("gui.buildminions.clear_queue"), left + 110, top + 176, 72, 20, !q.isEmpty(),
+                () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.CLEAR_QUEUE)));
+        actionButton(g, mx, my, Component.translatable("gui.buildminions.deposit_raw"), left + 186, top + 176, W - 200, 20,
+                phase() == MinionPhase.COLLECTING || phase() == MinionPhase.CRAFTING,
+                () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.DEPOSIT)));
+    }
+
+    // ---------------------------------------------------------------- page 4
 
     private void drawOverview(GuiGraphicsExtractor g, int mx, int my) {
         if (state.blueprint().isEmpty()) {
@@ -363,6 +443,10 @@ public class MinionScreen extends Screen {
                 g.centeredText(font, Component.translatable("gui.buildminions.time_left", Ui.time(t.estimateSeconds(left2))), cx, top + 98, Ui.MUTED);
                 actionButton(g, mx, my, Component.translatable("gui.buildminions.stop"), cx - 60, top + 120, 120, 20, true,
                         () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.CANCEL)));
+            }
+            case CRAFTING -> {
+                g.centeredText(font, Component.translatable("gui.buildminions.crafting"), cx, top + 60, Ui.BRASS);
+                actionButton(g, mx, my, Component.translatable("gui.buildminions.tab.workshop"), cx - 60, top + 80, 120, 20, true, () -> tab = Tab.WORKSHOP);
             }
             case DONE -> {
                 Ui.sprite(g, Ui.icon("check"), cx - 16, top + 50, 32, 32);
@@ -445,6 +529,7 @@ public class MinionScreen extends Screen {
         int dir = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0;
         if (tab == Tab.BLUEPRINTS) filePage = Math.max(0, filePage + dir);
         if (tab == Tab.MATERIALS) matPage = Math.max(0, matPage + dir);
+        if (tab == Tab.WORKSHOP) craftPage = Math.max(0, craftPage + dir);
         return true;
     }
 }

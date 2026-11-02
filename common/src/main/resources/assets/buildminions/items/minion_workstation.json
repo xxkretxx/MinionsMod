@@ -1,0 +1,6 @@
+{
+ "model": {
+  "type": "minecraft:model",
+  "model": "buildminions:block/minion_workstation"
+ }
+}
