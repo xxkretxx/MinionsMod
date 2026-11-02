@@ -15,7 +15,7 @@ import dev.buildminions.platform.Services;
 import dev.buildminions.schematic.Schematic;
 import dev.buildminions.schematic.SchematicReader;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -130,12 +130,12 @@ public class MinionScreen extends Screen {
     // ================================================================= drawing
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         lastMouseX = mouseX;
         lastMouseY = mouseY;
         pendingTooltip = null;
         g.fill(0, 0, width, height, 0xA0080A12);
-        super.extractRenderState(g, mouseX, mouseY, partialTick);
+        super.render(g, mouseX, mouseY, partialTick);
         hits.clear();
         if (loading != null && loading.isDone()) {
             try { preview = loading.join(); } catch (Exception e) {
@@ -156,7 +156,7 @@ public class MinionScreen extends Screen {
         if (pendingTooltip != null) g.setTooltipForNextFrame(font, pendingTooltip, mouseX, mouseY);
     }
 
-    private void drawTabs(GuiGraphicsExtractor g, int mx, int my) {
+    private void drawTabs(GuiGraphics g, int mx, int my) {
         String[] keys = {"gui.buildminions.tab.blueprints", "gui.buildminions.tab.materials", "gui.buildminions.tab.overview"};
         String[] icons = {"file", "chest", "clock"};
         for (int i = 0; i < 3; i++) {
@@ -166,19 +166,19 @@ public class MinionScreen extends Screen {
             boolean hov = Ui.inside(mx, my, x, y, w, h);
             Ui.sprite(g, sel ? Ui.TAB_SELECTED : Ui.TAB, x, sel ? y : y + 3, w, sel ? h + 2 : h - 3);
             Ui.sprite(g, Ui.icon(icons[i]), x + 6, y + (sel ? 3 : 5), 16, 16);
-            g.text(font, Component.translatable(keys[i]), x + 26, y + (sel ? 7 : 9), sel ? Ui.BRASS : hov ? Ui.WHITE : Ui.MUTED);
+            g.drawString(font, Component.translatable(keys[i]), x + 26, y + (sel ? 7 : 9), sel ? Ui.BRASS : hov ? Ui.WHITE : Ui.MUTED);
             hits.add(new Hit(x, y, w, h, () -> { tab = t; }));
         }
     }
 
-    private void drawHeader(GuiGraphicsExtractor g) {
+    private void drawHeader(GuiGraphics g) {
         MinionTier t = tier();
         Ui.sprite(g, Ui.HEADER, left + 30, top + 8, W - 60, 18);
         Ui.sprite(g, Ui.s("badge_" + t.id), left + 10, top + 5, 24, 24);
-        g.text(font, title.copy().withStyle(ChatFormatting.BOLD), left + 40, top + 13, 0xFFFFF4D6);
+        g.drawString(font, title.copy().withStyle(ChatFormatting.BOLD), left + 40, top + 13, 0xFFFFF4D6);
         String status = Component.translatable("gui.buildminions.phase." + phase().name().toLowerCase()).getString();
         int sw = font.width(status);
-        g.text(font, status, left + W - 36 - sw, top + 13, Ui.BRASS);
+        g.drawString(font, status, left + W - 36 - sw, top + 13, Ui.BRASS);
         // durability pill
         int remaining = Math.max(0, state.maxBlocks() - state.used());
         Ui.sprite(g, Ui.icon("heart"), left + W - 30, top + 9, 16, 16);
@@ -186,23 +186,23 @@ public class MinionScreen extends Screen {
         hitTooltip(left + W - 30, top + 9, 16, 16, Component.translatable("gui.buildminions.durability", Ui.num(remaining), Ui.num(state.maxBlocks())).append(" · ").append(upg));
         if (state.upgrade() > 0) {
             int nameW = font.width(title.copy().withStyle(ChatFormatting.BOLD));
-            g.text(font, state.upgrade() == 2 ? "★★" : "★", left + 44 + nameW, top + 13, state.upgrade() == 2 ? 0xFFFF7BFF : Ui.YELLOW);
+            g.drawString(font, state.upgrade() == 2 ? "★★" : "★", left + 44 + nameW, top + 13, state.upgrade() == 2 ? 0xFFFF7BFF : Ui.YELLOW);
         }
     }
 
     // ---------------------------------------------------------------- page 1
 
-    private void drawBlueprints(GuiGraphicsExtractor g, int mx, int my) {
+    private void drawBlueprints(GuiGraphics g, int mx, int my) {
         int lx = left + 14, ly = top + 38;
         if (files.isEmpty()) {
             Ui.sprite(g, Ui.INSET, lx, ly, W - 28, 126);
             Component msg = Component.translatable(scanning ? "gui.buildminions.scanning" : "gui.buildminions.no_files");
             int y = ly + 40;
             for (var line : font.split(msg, W - 60)) {
-                g.text(font, line, left + W / 2 - font.width(line) / 2, y, Ui.TEXT);
+                g.drawString(font, line, left + W / 2 - font.width(line) / 2, y, Ui.TEXT);
                 y += 11;
             }
-            g.centeredText(font, Component.literal(".minecraft/schematics  (.litematic · .schem · .nbt)"), left + W / 2, ly + 96, Ui.MUTED);
+            g.drawCenteredString(font, Component.literal(".minecraft/schematics  (.litematic · .schem · .nbt)"), left + W / 2, ly + 96, Ui.MUTED);
             actionButton(g, mx, my, Component.translatable("gui.buildminions.open_folder"), left + W / 2 - 104, top + 172, 100, 20, true,
                     () -> openFolder(ClientState.schematicsFolder()));
             actionButton(g, mx, my, Component.translatable("gui.buildminions.refresh"), left + W / 2 + 4, top + 172, 100, 20, true, this::scanFiles);
@@ -217,7 +217,7 @@ public class MinionScreen extends Screen {
             boolean sel = idx == selected, hov = Ui.inside(mx, my, lx, y, 150, 20);
             Ui.sprite(g, sel ? Ui.ROW_DONE : Ui.ROW, lx, y, 150, 20);
             Ui.sprite(g, Ui.icon("file"), lx + 3, y + 2, 16, 16);
-            g.text(font, Ui.trim(font, files.get(idx).label(), 124), lx + 22, y + 6, sel ? Ui.WHITE : hov ? 0xFFFFF3C8 : Ui.TEXT);
+            g.drawString(font, Ui.trim(font, files.get(idx).label(), 124), lx + 22, y + 6, sel ? Ui.WHITE : hov ? 0xFFFFF3C8 : Ui.TEXT);
             final int fi = idx;
             hits.add(new Hit(lx, y, 150, 20, () -> select(fi)));
         }
@@ -229,17 +229,17 @@ public class MinionScreen extends Screen {
         int tx = dx + 6, ty = dy + 6;
         if (selected < 0) {
             for (var line : font.split(Component.translatable("gui.buildminions.pick_file"), dw - 12)) {
-                g.text(font, line, tx, ty, Ui.MUTED); ty += 11;
+                g.drawString(font, line, tx, ty, Ui.MUTED); ty += 11;
             }
         } else if (loading != null) {
-            g.text(font, Component.translatable("gui.buildminions.reading"), tx, ty, Ui.YELLOW);
+            g.drawString(font, Component.translatable("gui.buildminions.reading"), tx, ty, Ui.YELLOW);
         } else if (error != null) {
-            g.text(font, Component.translatable("gui.buildminions.read_error"), tx, ty, Ui.RED);
+            g.drawString(font, Component.translatable("gui.buildminions.read_error"), tx, ty, Ui.RED);
             ty += 12;
-            for (var line : font.split(Component.literal(error), dw - 12)) { g.text(font, line, tx, ty, Ui.MUTED); ty += 10; }
+            for (var line : font.split(Component.literal(error), dw - 12)) { g.drawString(font, line, tx, ty, Ui.MUTED); ty += 10; }
         } else if (preview != null) {
             int blocks = preview.placeableCount();
-            g.text(font, Ui.trim(font, preview.name, dw - 12), tx, ty, Ui.BRASS); ty += 14;
+            g.drawString(font, Ui.trim(font, preview.name, dw - 12), tx, ty, Ui.BRASS); ty += 14;
             stat(g, "size", Component.translatable("gui.buildminions.size", preview.sizeX, preview.sizeY, preview.sizeZ), tx, ty); ty += 18;
             stat(g, "blocks", Component.translatable("gui.buildminions.blocks", Ui.num(blocks)), tx, ty); ty += 18;
             stat(g, "chest", Component.translatable("gui.buildminions.types", preview.distinctBlockTypes()), tx, ty); ty += 18;
@@ -257,7 +257,7 @@ public class MinionScreen extends Screen {
 
     // ---------------------------------------------------------------- page 2
 
-    private void drawMaterials(GuiGraphicsExtractor g, int mx, int my) {
+    private void drawMaterials(GuiGraphics g, int mx, int my) {
         List<ModNetwork.MaterialLine> mats = state.materials();
         if (mats.isEmpty()) {
             emptyHint(g, "gui.buildminions.no_blueprint");
@@ -274,10 +274,10 @@ public class MinionScreen extends Screen {
             Ui.sprite(g, done ? Ui.ROW_DONE : Ui.ROW, x, y, 142, 22);
             Ui.sprite(g, Ui.SLOT, x + 2, y + 2, 18, 18);
             ItemStack stack = new ItemStack(m.item());
-            g.item(stack, x + 3, y + 3);
-            g.text(font, Ui.trim(font, stack.getHoverName().getString(), 76), x + 24, y + 3, Ui.WHITE);
+            g.renderItem(stack, x + 3, y + 3);
+            g.drawString(font, Ui.trim(font, stack.getHoverName().getString(), 76), x + 24, y + 3, Ui.WHITE);
             String count = Ui.num(Math.min(m.have(), m.need())) + " / " + Ui.num(m.need());
-            g.text(font, count, x + 24, y + 12, done ? Ui.GREEN : Ui.MUTED);
+            g.drawString(font, count, x + 24, y + 12, done ? Ui.GREEN : Ui.MUTED);
             Ui.progress(g, x + 104, y + 14, 34, 5, m.need() == 0 ? 1f : m.have() / (float) m.need(), done ? Ui.PROGRESS_FILL : Ui.PROGRESS_WARN);
             if (done) Ui.sprite(g, Ui.icon("check"), x + 122, y + 1, 12, 12);
             hitTooltip(x, y, 142, 22, Component.translatable("gui.buildminions.mat_tooltip", stack.getHoverName(), Ui.num(m.have()), Ui.num(m.need())));
@@ -288,15 +288,15 @@ public class MinionScreen extends Screen {
         actionButton(g, mx, my, Component.translatable("gui.buildminions.deposit"), left + 14, top + 176, 140, 20, collecting && !state.creative(),
                 () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.DEPOSIT)));
         int need = needTotal(), have = need - missing();
-        g.text(font, Component.translatable("gui.buildminions.materials_total", Ui.num(have), Ui.num(need)), left + 162, top + 176, Ui.TEXT);
+        g.drawString(font, Component.translatable("gui.buildminions.materials_total", Ui.num(have), Ui.num(need)), left + 162, top + 176, Ui.TEXT);
         Ui.progress(g, left + 162, top + 187, W - 176, 8, need == 0 ? 1f : have / (float) need, missing() == 0 ? Ui.PROGRESS_FILL : Ui.PROGRESS_BLUE);
         if (state.creative())
-            g.text(font, Component.translatable("gui.buildminions.creative"), left + 162, top + 166, Ui.YELLOW);
+            g.drawString(font, Component.translatable("gui.buildminions.creative"), left + 162, top + 166, Ui.YELLOW);
     }
 
     // ---------------------------------------------------------------- page 3
 
-    private void drawOverview(GuiGraphicsExtractor g, int mx, int my) {
+    private void drawOverview(GuiGraphics g, int mx, int my) {
         if (state.blueprint().isEmpty()) {
             emptyHint(g, "gui.buildminions.no_blueprint");
             return;
@@ -308,7 +308,7 @@ public class MinionScreen extends Screen {
         int sx = left + 12, sy = top + 36;
         Ui.sprite(g, Ui.INSET, sx, sy, 136, 162);
         int tx = sx + 6, ty = sy + 6;
-        g.text(font, Ui.trim(font, state.blueprint(), 124), tx, ty, Ui.BRASS); ty += 14;
+        g.drawString(font, Ui.trim(font, state.blueprint(), 124), tx, ty, Ui.BRASS); ty += 14;
         stat(g, "size", Component.translatable("gui.buildminions.size", state.sizeX(), state.sizeY(), state.sizeZ()), tx, ty); ty += 19;
         stat(g, "blocks", Component.translatable("gui.buildminions.blocks", Ui.num(blocks)), tx, ty); ty += 19;
         stat(g, "clock", Component.translatable("gui.buildminions.time", Ui.time(t.estimateSeconds(blocks))), tx, ty); ty += 19;
@@ -318,7 +318,7 @@ public class MinionScreen extends Screen {
             Ui.sprite(g, Ui.icon("warning"), tx, ty, 16, 16);
             int yy = ty + 1;
             for (var line : font.split(Component.translatable("gui.buildminions.too_big", Ui.num(remaining)), 102)) {
-                g.text(font, line, tx + 20, yy, Ui.RED); yy += 10;
+                g.drawString(font, line, tx + 20, yy, Ui.RED); yy += 10;
             }
         }
 
@@ -330,23 +330,23 @@ public class MinionScreen extends Screen {
                 boolean hov = ready && Ui.inside(mx, my, ax, ay, 40, 40);
                 Ui.sprite(g, Ui.SLOT, ax - 4, ay - 4, 48, 48);
                 Ui.sprite(g, !ready ? Ui.ACCEPT_LOCKED : hov ? Ui.ACCEPT_HOVER : Ui.ACCEPT_READY, ax, ay, 40, 40);
-                g.centeredText(font, Component.translatable("gui.buildminions.accept").withStyle(ChatFormatting.BOLD), cx, top + 100, ready ? Ui.GREEN : Ui.MUTED);
+                g.drawCenteredString(font, Component.translatable("gui.buildminions.accept").withStyle(ChatFormatting.BOLD), cx, top + 100, ready ? Ui.GREEN : Ui.MUTED);
                 Component sub = state.creative() ? Component.translatable("gui.buildminions.creative")
                         : ready ? Component.translatable("gui.buildminions.ready")
                         : Component.translatable("gui.buildminions.missing", Ui.num(missing()));
-                g.centeredText(font, sub, cx, top + 114, state.creative() ? Ui.YELLOW : ready ? Ui.TEXT : Ui.RED);
+                g.drawCenteredString(font, sub, cx, top + 114, state.creative() ? Ui.YELLOW : ready ? Ui.TEXT : Ui.RED);
                 if (ready) {
                     hits.add(new Hit(ax, ay, 40, 40, () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.ACCEPT))));
                 } else {
                     hits.add(new Hit(ax, ay, 40, 40, () -> tab = Tab.MATERIALS));
                     hitTooltip(ax, ay, 40, 40, Component.translatable("gui.buildminions.goto_materials"));
                 }
-                g.centeredText(font, Component.translatable("gui.buildminions.accept_hint"), cx, top + 132, Ui.MUTED);
+                g.drawCenteredString(font, Component.translatable("gui.buildminions.accept_hint"), cx, top + 132, Ui.MUTED);
                 actionButton(g, mx, my, Component.translatable("gui.buildminions.clear"), left + 156, top + 176, 72, 20, true,
                         () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.CLEAR)));
             }
             case AWAITING_PLACEMENT -> {
-                g.centeredText(font, Component.translatable("gui.buildminions.placing"), cx, top + 60, Ui.YELLOW);
+                g.drawCenteredString(font, Component.translatable("gui.buildminions.placing"), cx, top + 60, Ui.YELLOW);
                 actionButton(g, mx, my, Component.translatable("gui.buildminions.resume_placing"), cx - 60, top + 80, 120, 20,
                         ClientState.BLUEPRINTS.containsKey(state.entityId()), () -> {
                             if (PlacementController.start(state.entityId())) onClose();
@@ -356,17 +356,17 @@ public class MinionScreen extends Screen {
             }
             case BUILDING -> {
                 float pct = state.total() == 0 ? 0f : state.progress() / (float) state.total();
-                g.centeredText(font, Component.translatable("gui.buildminions.building", Math.round(pct * 100)), cx, top + 56, Ui.BRASS);
+                g.drawCenteredString(font, Component.translatable("gui.buildminions.building", Math.round(pct * 100)), cx, top + 56, Ui.BRASS);
                 Ui.progress(g, cx - 64, top + 70, 128, 10, pct, Ui.PROGRESS_FILL);
-                g.centeredText(font, Ui.num(state.progress()) + " / " + Ui.num(state.total()), cx, top + 86, Ui.TEXT);
+                g.drawCenteredString(font, Ui.num(state.progress()) + " / " + Ui.num(state.total()), cx, top + 86, Ui.TEXT);
                 int left2 = Math.max(0, state.total() - state.progress());
-                g.centeredText(font, Component.translatable("gui.buildminions.time_left", Ui.time(t.estimateSeconds(left2))), cx, top + 98, Ui.MUTED);
+                g.drawCenteredString(font, Component.translatable("gui.buildminions.time_left", Ui.time(t.estimateSeconds(left2))), cx, top + 98, Ui.MUTED);
                 actionButton(g, mx, my, Component.translatable("gui.buildminions.stop"), cx - 60, top + 120, 120, 20, true,
                         () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.CANCEL)));
             }
             case DONE -> {
                 Ui.sprite(g, Ui.icon("check"), cx - 16, top + 50, 32, 32);
-                g.centeredText(font, Component.translatable("gui.buildminions.done").withStyle(ChatFormatting.BOLD), cx, top + 90, Ui.GREEN);
+                g.drawCenteredString(font, Component.translatable("gui.buildminions.done").withStyle(ChatFormatting.BOLD), cx, top + 90, Ui.GREEN);
                 actionButton(g, mx, my, Component.translatable("gui.buildminions.build_again"), cx - 60, top + 110, 120, 20, true,
                         () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(), ModNetwork.Action.CANCEL)));
                 actionButton(g, mx, my, Component.translatable("gui.buildminions.clear"), left + 156, top + 176, 72, 20, true,
@@ -383,30 +383,30 @@ public class MinionScreen extends Screen {
 
     // ================================================================= widgets
 
-    private void stat(GuiGraphicsExtractor g, String icon, Component text, int x, int y) {
+    private void stat(GuiGraphics g, String icon, Component text, int x, int y) {
         Ui.sprite(g, Ui.icon(icon), x, y, 16, 16);
-        g.text(font, text, x + 20, y + 4, Ui.TEXT);
+        g.drawString(font, text, x + 20, y + 4, Ui.TEXT);
     }
 
-    private void emptyHint(GuiGraphicsExtractor g, String key) {
+    private void emptyHint(GuiGraphics g, String key) {
         Ui.sprite(g, Ui.INSET, left + 14, top + 38, W - 28, 126);
         Ui.sprite(g, Ui.icon("file"), left + W / 2 - 16, top + 64, 32, 32);
-        g.centeredText(font, Component.translatable(key), left + W / 2, top + 108, Ui.MUTED);
+        g.drawCenteredString(font, Component.translatable(key), left + W / 2, top + 108, Ui.MUTED);
         hits.add(new Hit(left + 14, top + 38, W - 28, 126, () -> tab = Tab.BLUEPRINTS));
     }
 
-    private void actionButton(GuiGraphicsExtractor g, int mx, int my, Component label, int x, int y, int w, int h, boolean enabled, Runnable action) {
+    private void actionButton(GuiGraphics g, int mx, int my, Component label, int x, int y, int w, int h, boolean enabled, Runnable action) {
         boolean hov = enabled && Ui.inside(mx, my, x, y, w, h);
         Ui.button(g, font, label, x, y, w, h, enabled, hov);
         if (enabled) hits.add(new Hit(x, y, w, h, action));
     }
 
-    private void pager(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int page, int pages, java.util.function.IntConsumer set) {
+    private void pager(GuiGraphics g, int mx, int my, int x, int y, int w, int page, int pages, java.util.function.IntConsumer set) {
         if (pages <= 1) return;
         boolean canPrev = page > 0, canNext = page < pages - 1;
         Ui.sprite(g, Ui.icon("arrow_left"), x, y - 2, 16, 16);
         Ui.sprite(g, Ui.icon("arrow_right"), x + w - 16, y - 2, 16, 16);
-        g.centeredText(font, Component.translatable("gui.buildminions.page", page + 1, pages), x + w / 2, y + 2, Ui.TEXT);
+        g.drawCenteredString(font, Component.translatable("gui.buildminions.page", page + 1, pages), x + w / 2, y + 2, Ui.TEXT);
         if (canPrev) hits.add(new Hit(x, y - 2, 16, 16, () -> set.accept(page - 1)));
         if (canNext) hits.add(new Hit(x + w - 16, y - 2, 16, 16, () -> set.accept(page + 1)));
     }
@@ -419,7 +419,7 @@ public class MinionScreen extends Screen {
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // the screen draws its own dim layer instead of the vanilla blur
     }
 
@@ -427,7 +427,7 @@ public class MinionScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) { // SDL3: left = 1
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) { 
             for (int i = hits.size() - 1; i >= 0; i--) {
                 Hit h = hits.get(i);
                 if (Ui.inside(event.x(), event.y(), h.x(), h.y(), h.w(), h.h())) {

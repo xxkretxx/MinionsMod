@@ -12,7 +12,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
-import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
@@ -99,6 +99,6 @@ public final class GhostRenderer {
 
     private static void v(PoseStack.Pose p, VertexConsumer b, float x, float y, float z, float u, float vv, int c, float nx, float ny, float nz) {
         b.addVertex(p, x, y, z).setColor(c).setUv(u, vv).setOverlay(OverlayTexture.NO_OVERLAY)
-                .setLight(LightCoordsUtil.FULL_BRIGHT).setNormal(p, nx, ny, nz);
+                .setLight(LightTexture.FULL_BRIGHT).setNormal(p, nx, ny, nz);
     }
 }

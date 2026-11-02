@@ -33,7 +33,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.minecraft.util.Prediction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
@@ -91,7 +90,7 @@ public class MinionEntity extends Mob {
     public MinionEntity(EntityType<? extends MinionEntity> type, Level level) {
         super(type, level);
         this.setPersistenceRequired();
-        this.setPermanentlyInvulnerable(true);
+        this.setInvulnerable(true);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -429,7 +428,7 @@ public class MinionEntity extends Mob {
         stack.set(DataComponents.MAX_DAMAGE, getMaxBlocks());
         stack.setDamageValue(Math.min(getUsed(), getMaxBlocks() - 1));
         dropStoredTo(player);
-        if (!player.getInventory().add(stack)) player.drop(stack, false, Prediction.SERVER_ONLY);
+        if (!player.getInventory().add(stack)) player.drop(stack, false, false);
         playSound(SoundEvents.ITEM_PICKUP, 1f, 0.8f);
         discard();
     }
@@ -440,7 +439,7 @@ public class MinionEntity extends Mob {
             while (left > 0) {
                 int n = Math.min(left, e.getKey().getDefaultMaxStackSize());
                 ItemStack st = new ItemStack(e.getKey(), n);
-                if (!player.getInventory().add(st)) player.drop(st, false, Prediction.SERVER_ONLY);
+                if (!player.getInventory().add(st)) player.drop(st, false, false);
                 left -= n;
             }
         }

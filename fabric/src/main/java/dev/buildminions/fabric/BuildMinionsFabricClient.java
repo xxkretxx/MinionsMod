@@ -13,13 +13,13 @@ import dev.buildminions.net.ModNetwork;
 import dev.buildminions.platform.Services;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
@@ -31,13 +31,13 @@ public class BuildMinionsFabricClient implements ClientModInitializer {
         for (ModNetwork.Clientbound<?> p : ModNetwork.CLIENTBOUND) registerClientbound(p);
 
         EntityRendererRegistry.register(ModContent.MINION.get(), MinionRenderer::new);
-        ModelLayerRegistry.registerModelLayer(MinionRenderer.LAYER, MinionModel::createBodyLayer);
+        EntityModelLayerRegistry.registerModelLayer(MinionRenderer.LAYER, MinionModel::createBodyLayer);
 
-        for (KeyMapping key : ModKeys.ALL) KeyMappingHelper.registerKeyMapping(key);
+        for (KeyMapping key : ModKeys.ALL) KeyBindingHelper.registerKeyBinding(key);
         ClientTickEvents.END_CLIENT_TICK.register(PlacementController::tick);
 
-        LevelRenderEvents.COLLECT_SUBMITS.register(ctx ->
-                GhostRenderer.render(ctx.poseStack(), ctx.submitNodeCollector(), ctx.levelState().cameraRenderState.pos));
+        WorldRenderEvents.AFTER_ENTITIES.register(ctx ->
+                GhostRenderer.render(ctx.matrices(), ctx.commandQueue(), ctx.worldState().cameraRenderState.pos));
 
         HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, BuildMinions.id("placement_hud"), PlacementHud::extract);
     }

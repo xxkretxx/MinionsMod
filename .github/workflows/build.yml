@@ -33,12 +33,17 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && (./gradlew :common:compileJava :fabric:compileJava --continue > /dev/null 2>&1 || true)
+      - run: chmod +x gradlew && (./gradlew compileJava --continue > /dev/null 2>&1 || true)
       - name: javap
         run: |
-          MC=""
-          for j in $(find /home/runner/work ~/.gradle -name '*.jar' 2>/dev/null | grep -F "1.21.11" | grep -iE 'minecraft|neoform|vanilla|merged' | grep -v sources); do
-            if unzip -l "$j" 2>/dev/null | grep -q "net/minecraft/client/gui/screens/Screen.class"; then MC="$j"; break; fi; done
-          FAPI=$( (find /home/runner/work -path '*remapped*' -name '*fabric-rendering-v1*.jar'; find ~/.gradle -name 'fabric-rendering-v1*.jar') 2>/dev/null | grep -v sources | head -1)
-          echo "MC=$MC FAPI=$FAPI"
-          for c in net.minecraft.client.gui.GuiGraphics net.minecraft.client.gui.screens.Screen net.minecraft.client.Minecraft net.minecraft.world.entity.Entity net.minecraft.server.level.ServerPlayer net.minecraft.world.level.block.Blocks com.mojang.blaze3d.platform.InputConstants net.minecraft.client.input.MouseButtonEvent net.minecraft.client.renderer.LightTexture net.minecraft.client.renderer.rendertype.RenderTypes net.minecraft.client.renderer.RenderType net.minecraft.client.renderer.SubmitNodeCollector net.minecraft.client.KeyMapping net.minecraft.world.level.storage.ValueInput net.minecraft.nbt.CompoundTag net.minecraft.SharedConstants net.minecraft.client.renderer.entity.LivingEntityRenderer net.minecraft.client.gui.Font net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry net.minecraft.resources.Identifier net.minecraft.resources.ResourceLocation net.minecraft.client.renderer.state.CameraRenderState net.minecraft.client.renderer.state.LevelRenderState; do echo "===== $c"; javap -public -cp "$MC:$FAPI" "$c" 2>&1 | grep -v "^Compiled"; done
+          JARS=$(find /home/runner/work ~/.gradle -name '*.jar' 2>/dev/null | grep -v sources | grep -vF 26.3)
+          findjar(){ for j in $JARS; do unzip -l "$j" 2>/dev/null | grep -q " $1$" && { echo "$j"; return; }; done; }
+          FORGE=$(findjar net/minecraftforge/network/ChannelBuilder.class); NEO=$(findjar net/neoforged/neoforge/client/event/RenderLevelStageEvent.class)
+          FMC=$(findjar net/minecraft/client/gui/screens/Screen.class)
+          echo "FORGE=$FORGE NEO=$NEO"
+          for p in net/minecraftforge/client/event net/minecraftforge/network net/minecraftforge/event/entity; do echo "##### $p"; unzip -l "$FORGE" | grep -oE "$p/[A-Za-z]+(\$[A-Za-z]+)?\.class" | sort -u | tr '\n' ' '; echo; done
+          echo "##### neo events"; unzip -l "$NEO" | grep -oE "net/neoforged/neoforge/client/event/[A-Za-z]+(\$[A-Za-z]+)?\.class" | sort -u | tr '\n' ' '; echo
+          for c in net.minecraftforge.network.ChannelBuilder net.minecraftforge.network.Channel net.minecraftforge.network.SimpleChannel net.minecraftforge.network.PayloadChannel net.minecraftforge.network.CustomPayloadEvent\$Context net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext net.minecraftforge.registries.DeferredRegister net.minecraftforge.registries.RegistryObject net.minecraftforge.event.entity.EntityAttributeCreationEvent net.minecraftforge.client.event.EntityRenderersEvent\$RegisterRenderers net.minecraftforge.client.event.EntityRenderersEvent\$RegisterLayerDefinitions net.minecraftforge.client.event.RegisterKeyMappingsEvent net.minecraftforge.client.event.AddGuiOverlayLayersEvent net.minecraftforge.client.event.RenderLevelStageEvent net.minecraftforge.event.TickEvent\$ClientTickEvent\$Post net.minecraftforge.event.TickEvent\$ClientTickEvent net.minecraftforge.network.PacketDistributor; do
+            echo "===== $c"; javap -public -cp "$FORGE:$FMC" "$c" 2>&1 | grep -v "^Compiled" | head -40; done
+          for c in net.neoforged.neoforge.client.event.RenderLevelStageEvent\$AfterEntities net.neoforged.neoforge.client.event.RenderLevelStageEvent net.neoforged.neoforge.client.network.ClientPacketDistributor net.neoforged.neoforge.client.event.RegisterGuiLayersEvent net.neoforged.neoforge.client.gui.GuiLayer; do
+            echo "===== $c"; javap -public -cp "$NEO:$FMC" "$c" 2>&1 | grep -v "^Compiled" | head -30; done

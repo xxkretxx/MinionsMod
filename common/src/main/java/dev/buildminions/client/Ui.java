@@ -2,7 +2,7 @@ package dev.buildminions.client;
 
 import dev.buildminions.BuildMinions;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -29,7 +29,7 @@ public final class Ui {
         return BuildMinions.id("icon_" + name);
     }
 
-    public static void sprite(GuiGraphicsExtractor g, Identifier id, int x, int y, int w, int h) {
+    public static void sprite(GuiGraphics g, Identifier id, int x, int y, int w, int h) {
         g.blitSprite(RenderPipelines.GUI_TEXTURED, id, x, y, w, h);
     }
 
@@ -37,13 +37,13 @@ public final class Ui {
         return mx >= x && my >= y && mx < x + w && my < y + h;
     }
 
-    public static void button(GuiGraphicsExtractor g, Font font, Component label, int x, int y, int w, int h, boolean enabled, boolean hovered) {
+    public static void button(GuiGraphics g, Font font, Component label, int x, int y, int w, int h, boolean enabled, boolean hovered) {
         sprite(g, !enabled ? BUTTON_DISABLED : hovered ? BUTTON_HOVER : BUTTON, x, y, w, h);
         int color = !enabled ? 0xFF7A7F8C : hovered ? 0xFFFFF3C8 : WHITE;
-        g.centeredText(font, label, x + w / 2, y + (h - 8) / 2, color);
+        g.drawCenteredString(font, label, x + w / 2, y + (h - 8) / 2, color);
     }
 
-    public static void progress(GuiGraphicsExtractor g, int x, int y, int w, int h, float value, Identifier fill) {
+    public static void progress(GuiGraphics g, int x, int y, int w, int h, float value, Identifier fill) {
         sprite(g, PROGRESS_BG, x, y, w, h);
         int fw = Math.round((w - 2) * Math.max(0f, Math.min(1f, value)));
         if (fw >= 2) sprite(g, fill, x + 1, y + 1, fw, h - 2);

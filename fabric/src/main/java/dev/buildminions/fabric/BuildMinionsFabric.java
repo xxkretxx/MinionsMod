@@ -7,7 +7,7 @@ import dev.buildminions.minion.MinionTier;
 import dev.buildminions.net.ModNetwork;
 import dev.buildminions.platform.Services;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
+import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -32,7 +32,7 @@ public class BuildMinionsFabric implements ModInitializer {
             Item item = Registry.register(BuiltInRegistries.ITEM, ModContent.itemKey(tier.itemName()), ModContent.createMinionItem(tier));
             ModContent.MINION_ITEMS.put(tier, () -> item);
         }
-        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, BuildMinions.id("main"), ModContent.fillTab(FabricCreativeModeTab.builder()).build());
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, BuildMinions.id("main"), ModContent.fillTab(FabricItemGroup.builder()).build());
 
         // networking
         for (ModNetwork.Serverbound<?> p : ModNetwork.SERVERBOUND) registerServerbound(p);
@@ -43,11 +43,11 @@ public class BuildMinionsFabric implements ModInitializer {
     }
 
     private static <T extends CustomPacketPayload> void registerClientboundType(ModNetwork.Clientbound<T> p) {
-        PayloadTypeRegistry.clientboundPlay().register(p.type(), p.codec());
+        PayloadTypeRegistry.playS2C().register(p.type(), p.codec());
     }
 
     private static <T extends CustomPacketPayload> void registerServerbound(ModNetwork.Serverbound<T> p) {
-        PayloadTypeRegistry.serverboundPlay().register(p.type(), p.codec());
+        PayloadTypeRegistry.playC2S().register(p.type(), p.codec());
         ServerPlayNetworking.registerGlobalReceiver(p.type(), (payload, ctx) -> p.handler().accept(payload, ctx.player()));
     }
 }
