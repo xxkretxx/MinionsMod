@@ -55,7 +55,7 @@ public final class CraftPlanner {
         Map<ResourceKey<Recipe<?>>, Option> byId = new HashMap<>();
         for (RecipeHolder<?> holder : rm.getRecipes()) {
             try {
-                Option o = toOption(holder);
+                Option o = toOption(holder, server.registryAccess());
                 if (o == null) continue;
                 idx.computeIfAbsent(o.result(), k -> new ArrayList<>()).add(o);
                 byId.put(o.id(), o);
@@ -81,7 +81,7 @@ public final class CraftPlanner {
         return ing.items().findFirst().map(h -> new ItemStack(h)).orElse(ItemStack.EMPTY);
     }
 
-    private static Option toOption(RecipeHolder<?> holder) {
+    private static Option toOption(RecipeHolder<?> holder, net.minecraft.core.HolderLookup.Provider regs) {
         Recipe<?> r = holder.value();
         if (r.isSpecial()) return null;
         ItemStack result;
@@ -93,7 +93,7 @@ public final class CraftPlanner {
                 grid.add(opt.map(CraftPlanner::sample).orElse(ItemStack.EMPTY));
                 opt.ifPresent(ings::add);
             }
-            result = shaped.assemble(CraftingInput.of(shaped.getWidth(), shaped.getHeight(), grid));
+            result = shaped.assemble(CraftingInput.of(shaped.getWidth(), shaped.getHeight(), grid), regs);
             kind = Kind.CRAFT;
         } else if (r instanceof ShapelessRecipe shapeless) {
             List<Ingredient> list = shapeless.placementInfo().ingredients();
@@ -102,15 +102,15 @@ public final class CraftPlanner {
             for (Ingredient i : list) { grid.add(sample(i)); ings.add(i); }
             int w = list.size() <= 4 ? 2 : 3;
             while (grid.size() < w * w) grid.add(ItemStack.EMPTY);
-            result = shapeless.assemble(CraftingInput.of(w, w, grid));
+            result = shapeless.assemble(CraftingInput.of(w, w, grid), regs);
             kind = Kind.CRAFT;
         } else if (r instanceof AbstractCookingRecipe cooking && cooking.getType() == RecipeType.SMELTING) {
             ings.add(cooking.input());
-            result = cooking.assemble(new SingleRecipeInput(sample(cooking.input())));
+            result = cooking.assemble(new SingleRecipeInput(sample(cooking.input())), regs);
             kind = Kind.SMELT;
         } else if (r instanceof StonecutterRecipe cut) {
             ings.add(cut.input());
-            result = cut.assemble(new SingleRecipeInput(sample(cut.input())));
+            result = cut.assemble(new SingleRecipeInput(sample(cut.input())), regs);
             kind = Kind.CUT;
         } else {
             return null;
