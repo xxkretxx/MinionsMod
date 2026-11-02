@@ -47,7 +47,7 @@ public enum MinionTier {
 
     public Block particleBlock() {
         return switch (this) {
-            case COPPER -> Blocks.COPPER_BLOCK;
+            case COPPER -> Blocks.COPPER_BLOCK.asList().getFirst();
             case GOLD -> Blocks.GOLD_BLOCK;
             case DIAMOND -> Blocks.DIAMOND_BLOCK;
         };

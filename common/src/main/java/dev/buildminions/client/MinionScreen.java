@@ -20,7 +20,6 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -119,6 +118,14 @@ public class MinionScreen extends Screen {
         });
     }
 
+    private static void openFolder(Path dir) {
+        String os = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
+        String[] cmd = os.contains("win") ? new String[]{"explorer", dir.toString()}
+                : os.contains("mac") ? new String[]{"open", dir.toString()}
+                : new String[]{"xdg-open", dir.toString()};
+        try { new ProcessBuilder(cmd).start(); } catch (Exception ignored) {}
+    }
+
     // ================================================================= drawing
 
     @Override
@@ -191,7 +198,7 @@ public class MinionScreen extends Screen {
             }
             g.centeredText(font, Component.literal(".minecraft/schematics  (.litematic · .schem · .nbt)"), left + W / 2, ly + 96, Ui.MUTED);
             actionButton(g, mx, my, Component.translatable("gui.buildminions.open_folder"), left + W / 2 - 104, top + 172, 100, 20, true,
-                    () -> Util.getPlatform().openPath(ClientState.schematicsFolder()));
+                    () -> openFolder(ClientState.schematicsFolder()));
             actionButton(g, mx, my, Component.translatable("gui.buildminions.refresh"), left + W / 2 + 4, top + 172, 100, 20, true, this::scanFiles);
             return;
         }
