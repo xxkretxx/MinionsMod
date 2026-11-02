@@ -14,7 +14,7 @@
     "has_the_recipe": {
       "trigger": "minecraft:recipe_unlocked",
       "conditions": {
-        "recipe": "buildminions:copper_minion"
+        "recipes": "buildminions:copper_minion"
       }
     }
   },
