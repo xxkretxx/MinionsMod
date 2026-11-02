@@ -18,17 +18,8 @@ jobs:
           echo "MC=$MC"; echo "NEO=$NEO"
           find ~/.gradle /home/runner/work -name '*.jar' 2>/dev/null | grep -iE 'minecraft|neoforge' | grep -v sources | head -40
           mkdir -p out
-          for c in net.minecraft.client.gui.Gui net.minecraft.util.Util net.minecraft.util.Prediction 'net.minecraft.world.level.block.WeatheringCopperCollection$ByState' net.minecraft.client.gui.components.events.ContainerEventHandler net.minecraft.client.gui.components.events.GuiEventListener net.minecraft.client.Minecraft net.minecraft.world.entity.Entity net.minecraft.world.level.block.WeatheringCopperCollection \
-            'net.minecraft.util.Util$OS' net.minecraft.server.level.ServerPlayer net.minecraft.world.entity.player.Player \
-            net.minecraft.client.gui.GuiGraphicsExtractor net.minecraft.client.gui.screens.Screen net.minecraft.world.level.storage.ValueInput \
-            net.minecraft.world.level.storage.ValueOutput net.minecraft.sounds.SoundEvents net.minecraft.client.input.MouseButtonEvent \
-            net.minecraft.client.renderer.entity.state.LivingEntityRenderState net.minecraft.client.renderer.entity.state.EntityRenderState \
-            net.minecraft.client.renderer.SubmitNodeCollector net.minecraft.client.renderer.entity.MobRenderer net.minecraft.client.renderer.entity.LivingEntityRenderer \
-            net.minecraft.client.player.LocalPlayer net.minecraft.world.entity.Mob net.minecraft.world.entity.LivingEntity net.minecraft.client.KeyMapping \
-            net.minecraft.nbt.CompoundTag net.minecraft.nbt.ListTag net.minecraft.nbt.NbtIo net.minecraft.commands.arguments.blocks.BlockStateParser \
-            net.minecraft.client.gui.Font net.minecraft.client.model.EntityModel net.minecraft.world.entity.EntityType net.minecraft.world.item.Item \
-            net.minecraft.world.level.block.Blocks net.minecraft.world.entity.player.Inventory net.minecraft.world.level.block.state.BlockBehaviour\$BlockStateBase; do
-            echo "===== $c" >> out/mc.txt; javap -public -cp "$MC" "$c" >> out/mc.txt 2>&1 || true; done
+          for c in net.minecraft.client.input.MouseButtonInfo com.mojang.blaze3d.platform.InputConstants net.minecraft.client.MouseHandler net.minecraft.client.gui.components.events.AbstractContainerEventHandler; do
+            echo "===== $c" >> out/mc.txt; javap -public -constants -cp "$MC" "$c" >> out/mc.txt 2>&1 || true; done
           for c in net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent net.neoforged.neoforge.client.event.RenderLevelStageEvent \
             net.neoforged.neoforge.client.event.RegisterGuiLayersEvent net.neoforged.neoforge.client.gui.GuiLayer net.neoforged.neoforge.client.network.ClientPacketDistributor \
             net.neoforged.neoforge.network.PacketDistributor net.neoforged.neoforge.network.registration.PayloadRegistrar net.neoforged.neoforge.client.event.ClientTickEvent\$Post; do
