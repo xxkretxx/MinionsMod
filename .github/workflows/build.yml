@@ -16,7 +16,7 @@ jobs:
       - name: server test (fabric)
         run: bash .ci/server_test.sh fabric fabric/runs/server
       - name: server test (neoforge)
-        run: bash .ci/server_test.sh neoforge neoforge/runs/server
+        run: bash .ci/server_test.sh neoforge neoforge/run
       - uses: actions/upload-artifact@v4
         with:
           name: build-minions-jars
