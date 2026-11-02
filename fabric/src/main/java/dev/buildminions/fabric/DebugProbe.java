@@ -7,7 +7,7 @@ import net.minecraft.nbt.*;
 final class DebugProbe {
     static Path findDir() throws Exception {
         System.out.println("PROBE cwd=" + Path.of("").toAbsolutePath());
-        try (var w = Files.walk(Path.of("").toAbsolutePath().getParent(), 4)) {
+        try (var w = Files.walk(Path.of("").toAbsolutePath().getParent(), 2)) {
             return w.filter(x -> x.getFileName().toString().equals("testschem")).findFirst().orElseThrow();
         }
     }

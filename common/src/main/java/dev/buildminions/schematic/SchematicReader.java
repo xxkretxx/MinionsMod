@@ -15,6 +15,12 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
+import net.minecraft.SharedConstants;
+import net.minecraft.util.datafix.DataFixers;
+import net.minecraft.util.datafix.fixes.References;
+import com.mojang.serialization.Dynamic;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -72,6 +78,7 @@ public final class SchematicReader {
     // ------------------------------------------------------------------ Litematica
 
     private static Schematic litematic(CompoundTag root, String fallbackName) throws IOException {
+        int dv = root.getIntOr("MinecraftDataVersion", 0);
         CompoundTag meta = root.getCompoundOrEmpty("Metadata");
         String name = meta.getStringOr("Name", fallbackName);
         CompoundTag regions = root.getCompoundOrEmpty("Regions");
@@ -92,7 +99,7 @@ public final class SchematicReader {
             if (sx == 0 || sy == 0 || sz == 0) continue;
             ListTag pal = r.getListOrEmpty("BlockStatePalette");
             List<BlockState> palette = new ArrayList<>();
-            for (int i = 0; i < pal.size(); i++) palette.add(NbtUtils.readBlockState(BuiltInRegistries.BLOCK, pal.getCompoundOrEmpty(i)));
+            for (int i = 0; i < pal.size(); i++) palette.add(readState(pal.getCompoundOrEmpty(i), dv));
             if (palette.isEmpty()) palette.add(Blocks.AIR.defaultBlockState());
             int bits = Math.max(2, 32 - Integer.numberOfLeadingZeros(palette.size() - 1));
             long[] data = r.getLongArray("BlockStates").orElse(new long[0]);
@@ -135,6 +142,7 @@ public final class SchematicReader {
     private static Schematic sponge(CompoundTag root, String name) throws IOException {
         CompoundTag s = root.contains("Schematic") ? root.getCompoundOrEmpty("Schematic") : root;
         int version = s.getIntOr("Version", 2);
+        int dv = s.getIntOr("DataVersion", root.getIntOr("DataVersion", 0));
         int w = s.getShortOr("Width", (short) 0) & 0xFFFF;
         int h = s.getShortOr("Height", (short) 0) & 0xFFFF;
         int l = s.getShortOr("Length", (short) 0) & 0xFFFF;
@@ -151,7 +159,7 @@ public final class SchematicReader {
         }
         Map<Integer, BlockState> palette = new HashMap<>();
         for (String key : paletteTag.keySet()) {
-            palette.put(paletteTag.getIntOr(key, 0), parseState(key));
+            palette.put(paletteTag.getIntOr(key, 0), readState(stateStringToTag(key), dv));
         }
         Builder b = new Builder(w, h, l);
         int idx = 0, i = 0;
@@ -180,13 +188,14 @@ public final class SchematicReader {
         ListTag size = root.getListOrEmpty("size");
         int sx = size.getIntOr(0, 0), sy = size.getIntOr(1, 0), sz = size.getIntOr(2, 0);
         checkSize(sx, sy, sz);
+        int dv = root.getIntOr("DataVersion", 0);
         ListTag pal = root.getListOrEmpty("palette");
         if (pal.isEmpty()) {
             ListTag palettes = root.getListOrEmpty("palettes");
             if (!palettes.isEmpty()) pal = palettes.getListOrEmpty(0);
         }
         List<BlockState> palette = new ArrayList<>();
-        for (int i = 0; i < pal.size(); i++) palette.add(NbtUtils.readBlockState(BuiltInRegistries.BLOCK, pal.getCompoundOrEmpty(i)));
+        for (int i = 0; i < pal.size(); i++) palette.add(readState(pal.getCompoundOrEmpty(i), dv));
         Builder b = new Builder(sx, sy, sz);
         ListTag blocks = root.getListOrEmpty("blocks");
         for (int i = 0; i < blocks.size(); i++) {
@@ -201,12 +210,53 @@ public final class SchematicReader {
 
     // ------------------------------------------------------------------ helpers
 
-    private static BlockState parseState(String s) {
-        try {
-            return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, s, false).blockState();
-        } catch (Exception e) {
-            return Blocks.AIR.defaultBlockState();
+    /**
+     * Reads a palette entry, first running it through Minecraft's DataFixer so blocks saved by older
+     * versions (e.g. minecraft:chain -> minecraft:iron_chain, grass -> short_grass) are renamed.
+     */
+    static BlockState readState(CompoundTag tag, int dataVersion) {
+        String name = tag.getStringOr("Name", "minecraft:air");
+        int current = SharedConstants.WORLD_VERSION;
+        CompoundTag fixed = tag;
+        if (dataVersion > 0 && dataVersion < current) fixed = fix(tag, dataVersion, current);
+        BlockState state = NbtUtils.readBlockState(BuiltInRegistries.BLOCK, fixed);
+        if (state.isAir() && !name.endsWith("air")) {
+            // unknown/missing data version: try fixing from an old version as a fallback
+            for (int from : new int[]{1343, 2586, 3465}) {
+                if (from >= current) break;
+                BlockState retry = NbtUtils.readBlockState(BuiltInRegistries.BLOCK, fix(tag, from, current));
+                if (!retry.isAir()) return retry;
+            }
+            try { return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, name, false).blockState(); } catch (Exception ignored) {}
         }
+        return state;
+    }
+
+    private static CompoundTag fix(CompoundTag tag, int from, int to) {
+        try {
+            Tag out = DataFixers.getDataFixer().update(References.BLOCK_STATE, new Dynamic<Tag>(NbtOps.INSTANCE, tag.copy()), from, to).getValue();
+            return out instanceof CompoundTag c ? c : tag;
+        } catch (Exception e) {
+            return tag;
+        }
+    }
+
+    /** "minecraft:oak_stairs[facing=east,half=top]" -> {Name:..., Properties:{...}} */
+    static CompoundTag stateStringToTag(String s) {
+        CompoundTag tag = new CompoundTag();
+        int br = s.indexOf('[');
+        String name = br < 0 ? s : s.substring(0, br);
+        if (!name.contains(":")) name = "minecraft:" + name;
+        tag.putString("Name", name);
+        if (br >= 0 && s.endsWith("]")) {
+            CompoundTag props = new CompoundTag();
+            for (String kv : s.substring(br + 1, s.length() - 1).split(",")) {
+                int eq = kv.indexOf('=');
+                if (eq > 0) props.putString(kv.substring(0, eq).trim(), kv.substring(eq + 1).trim());
+            }
+            tag.put("Properties", props);
+        }
+        return tag;
     }
 
     private static void checkSize(int x, int y, int z) throws IOException {
