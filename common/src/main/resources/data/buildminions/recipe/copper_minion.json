@@ -7,9 +7,15 @@
     "i i"
   ],
   "key": {
-    "i": "minecraft:copper_ingot",
-    "B": "minecraft:copper_block",
-    "C": "buildminions:minion_core"
+    "i": {
+      "item": "minecraft:copper_ingot"
+    },
+    "B": {
+      "item": "minecraft:copper_block"
+    },
+    "C": {
+      "item": "buildminions:minion_core"
+    }
   },
   "result": {
     "id": "buildminions:copper_minion",

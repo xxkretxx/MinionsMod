@@ -7,9 +7,15 @@
     "i i"
   ],
   "key": {
-    "i": "minecraft:gold_ingot",
-    "B": "minecraft:gold_block",
-    "C": "buildminions:minion_core"
+    "i": {
+      "item": "minecraft:gold_ingot"
+    },
+    "B": {
+      "item": "minecraft:gold_block"
+    },
+    "C": {
+      "item": "buildminions:minion_core"
+    }
   },
   "result": {
     "id": "buildminions:gold_minion",

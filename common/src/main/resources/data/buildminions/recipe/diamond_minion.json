@@ -7,9 +7,15 @@
     "i i"
   ],
   "key": {
-    "i": "minecraft:diamond",
-    "B": "minecraft:diamond_block",
-    "C": "buildminions:minion_core"
+    "i": {
+      "item": "minecraft:diamond"
+    },
+    "B": {
+      "item": "minecraft:diamond_block"
+    },
+    "C": {
+      "item": "buildminions:minion_core"
+    }
   },
   "result": {
     "id": "buildminions:diamond_minion",

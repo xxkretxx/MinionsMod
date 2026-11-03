@@ -1,19 +1,30 @@
 {
- "type": "minecraft:crafting_shaped",
- "category": "misc",
- "pattern": [
-  "III",
-  "TCF",
-  "P P"
- ],
- "key": {
-  "I": "minecraft:iron_ingot",
-  "T": "minecraft:crafting_table",
-  "C": "buildminions:minion_core",
-  "F": "minecraft:furnace",
-  "P": "#minecraft:planks"
- },
- "result": {
-  "id": "buildminions:minion_workstation"
- }
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "III",
+    "TCF",
+    "P P"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "T": {
+      "item": "minecraft:crafting_table"
+    },
+    "C": {
+      "item": "buildminions:minion_core"
+    },
+    "F": {
+      "item": "minecraft:furnace"
+    },
+    "P": {
+      "tag": "minecraft:planks"
+    }
+  },
+  "result": {
+    "id": "buildminions:minion_workstation",
+    "count": 1
+  }
 }
