@@ -26,18 +26,3 @@ jobs:
             fabric/build/libs/*.jar
             neoforge/build/libs/*.jar
             forge/build/libs/*.jar
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
-      - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && (./gradlew :forge:compileJava > /dev/null 2>&1 || true)
-      - name: javap
-        run: |
-          JARS=$(find /home/runner/work ~/.gradle -name '*.jar' 2>/dev/null | grep -v sources | grep -vF 26.3)
-          findjar(){ for j in $JARS; do unzip -l "$j" 2>/dev/null | grep -q " $1$" && { echo "$j"; return; }; done; }
-          CP="$(findjar net/minecraftforge/network/ChannelBuilder.class):$(findjar net/minecraftforge/eventbus/api/bus/EventBus.class):$(findjar net/minecraft/client/gui/screens/Screen.class)"
-          for c in 'net.minecraftforge.client.event.RenderHighlightEvent$Block' net.minecraftforge.client.event.RenderHighlightEvent 'net.minecraftforge.client.event.AddFramePassEvent' net.minecraftforge.eventbus.api.bus.CancellableEventBus; do echo "===== $c"; javap -public -cp "$CP" "$c" 2>&1 | grep -v "^Compiled" | head -30; done
-
