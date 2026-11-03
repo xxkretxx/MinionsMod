@@ -1,10 +1,10 @@
 #!/bin/bash
 # usage: server_test.sh <gradle-project> <run-dir>   – starts a dedicated server, stops it once loaded,
 # fails if it never finishes loading or if any error mentions buildminions.
-P=$1; RUN=$2
+P=$1; RUN=$2; TASK=${3:-runServer}
 mkdir -p "$RUN" && echo "eula=true" > "$RUN/eula.txt"
 if [ "$P" = "fabric" ]; then ARGS=(--args="nogui"); else ARGS=(); fi
-./gradlew ":$P:runServer" "${ARGS[@]}" > "server-$P.log" 2>&1 &
+./gradlew ":$P:$TASK" "${ARGS[@]}" > "server-$P.log" 2>&1 &
 for i in $(seq 1 150); do
   grep -q "Done (" "server-$P.log" && break
   grep -qE "BUILD FAILED|Crash report|Failed to start" "server-$P.log" && break

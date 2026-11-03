@@ -16,7 +16,7 @@ jobs:
       - name: server test (fabric)
         run: bash .ci/server_test.sh fabric fabric/runs/server
       - name: server test (forge)
-        run: bash .ci/server_test.sh forge forge/runs/server
+        run: bash .ci/server_test.sh forge forge/runs/server Server
       - name: server test (neoforge)
         run: bash .ci/server_test.sh neoforge neoforge/run
       - uses: actions/upload-artifact@v4
