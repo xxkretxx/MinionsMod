@@ -11,7 +11,7 @@ for i in $(seq 1 150); do
   sleep 2
 done
 sleep 4; pkill -f java || true; sleep 2
-echo "---- $P"; grep -E "Done \(|ERROR|Exception|Caused by" "server-$P.log" | grep -v "server.properties\|NoSuchFileException\|at java.base" | head -25
+echo "---- $P"; grep -E "PROBE|Done \(|ERROR|Exception|Caused by" "server-$P.log" | grep -v "server.properties\|NoSuchFileException\|at java.base" | head -60
 grep -q "Done (" "server-$P.log" || { echo "SERVER DID NOT START"; tail -40 "server-$P.log"; exit 1; }
 if grep -E "/ERROR\]" "server-$P.log" | grep -qi buildminions; then echo "MOD DATA ERRORS"; exit 1; fi
 echo "SERVER OK ($P)"
