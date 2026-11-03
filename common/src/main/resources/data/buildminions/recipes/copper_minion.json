@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "iBi",
+    "iCi",
+    "i i"
+  ],
+  "key": {
+    "i": {
+      "item": "minecraft:copper_ingot"
+    },
+    "B": {
+      "item": "minecraft:copper_block"
+    },
+    "C": {
+      "item": "buildminions:minion_core"
+    }
+  },
+  "result": {
+    "count": 1,
+    "item": "buildminions:copper_minion"
+  }
+}

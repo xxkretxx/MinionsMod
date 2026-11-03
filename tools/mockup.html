@@ -1,0 +1,139 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>@font-face{font-family:mc;src:url(gui/minecraft.woff)}html,body{margin:0;background:#000}canvas{image-rendering:pixelated}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Re-implements the MinionScreen / PlacementHud draw calls 1:1 on a canvas (GUI scale 3).
+const S = 3, GW = 400, GH = 260;
+const q = new URLSearchParams(location.search), page = q.get('page') || 'overview';
+const cv = document.getElementById('c'); cv.width = GW * S; cv.height = GH * S;
+const c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+const names = ['panel','blueprint','inset','header','button_normal','button_hover','button_disabled','tab','tab_selected','row','row_done','slot',
+ 'progress_bg','progress_fill','progress_fill_warn','progress_fill_blue','accept_ready','accept_hover','accept_locked','badge_copper','badge_gold','badge_diamond',
+ 'icon_clock','icon_blocks','icon_heart','icon_size','icon_warning','icon_check','icon_file','icon_arrow_left','icon_arrow_right','icon_chest','icon_rotate',
+ 'copper_minion','gold_minion','diamond_minion','minion_core'];
+const img = {}; let meta;
+async function load() {
+  meta = await (await fetch('gui/meta.json')).json();
+  await Promise.all(names.map(n => new Promise(r => { const i = new Image(); i.onload = r; i.src = 'gui/' + n + '.png'; img[n] = i; })));
+  await document.fonts.load('16px mc');
+  await new Promise(r => { const i = new Image(); i.onload = r; i.onerror = r; i.src = 'bg.png'; img.bg = i; });
+}
+function blit(n, x, y, w, h) {
+  const im = img[n], m = meta[n];
+  const dr = (sx, sy, sw, sh, dx, dy, dw, dh) => { if (sw > 0 && sh > 0 && dw > 0 && dh > 0) c.drawImage(im, sx, sy, sw, sh, dx * S, dy * S, dw * S, dh * S); };
+  if (m && m.type === 'nine_slice') {
+    const b = m.border, iw = im.width, ih = im.height;
+    const xs = [0, b, iw - b, iw], ys = [0, b, ih - b, ih], dxs = [x, x + b, x + w - b, x + w], dys = [y, y + b, y + h - b, y + h];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+      if (i === 1 || j === 1) { // tile centre/edges like vanilla
+        const sw = xs[i + 1] - xs[i], sh = ys[j + 1] - ys[j], dw = dxs[i + 1] - dxs[i], dh = dys[j + 1] - dys[j];
+        for (let tx = 0; tx < dw; tx += sw) for (let ty = 0; ty < dh; ty += sh)
+          dr(xs[i], ys[j], Math.min(sw, dw - tx), Math.min(sh, dh - ty), dxs[i] + tx, dys[j] + ty, Math.min(sw, dw - tx), Math.min(sh, dh - ty));
+      } else dr(xs[i], ys[j], xs[i + 1] - xs[i], ys[j + 1] - ys[j], dxs[i], dys[j], dxs[i + 1] - dxs[i], dys[j + 1] - dys[j]);
+    }
+  } else if (m && m.type === 'tile') {
+    for (let tx = 0; tx < w; tx += im.width) for (let ty = 0; ty < h; ty += im.height)
+      dr(0, 0, Math.min(im.width, w - tx), Math.min(im.height, h - ty), x + tx, y + ty, Math.min(im.width, w - tx), Math.min(im.height, h - ty));
+  } else dr(0, 0, im.width, im.height, x, y, w, h);
+}
+const hex = v => '#' + (v & 0xFFFFFF).toString(16).padStart(6, '0');
+function text(s, x, y, col, shadow = true, bold = false) {
+  c.font = (bold ? 'bold ' : '') + (8 * S) + 'px mc'; c.textBaseline = 'top';
+  if (shadow) { c.fillStyle = 'rgba(0,0,0,.75)'; c.fillText(s, (x + 1) * S, (y + 1) * S - S); }
+  c.fillStyle = hex(col); c.fillText(s, x * S, y * S - S);
+}
+const tw = s => { c.font = (8 * S) + 'px mc'; return c.measureText(s).width / S; };
+const ctext = (s, x, y, col, b) => text(s, x - tw(s) / 2, y, col, true, b);
+function fill(x, y, w, h, col) { c.fillStyle = col; c.fillRect(x * S, y * S, w * S, h * S); }
+function button(label, x, y, w, h, en = true, hov = false) {
+  blit(!en ? 'button_disabled' : hov ? 'button_hover' : 'button_normal', x, y, w, h);
+  ctext(label, x + w / 2, y + (h - 8) / 2, !en ? 0x7A7F8C : hov ? 0xFFF3C8 : 0xFFFFFF);
+}
+function progress(x, y, w, h, v, f) { blit('progress_bg', x, y, w, h); const fw = Math.round((w - 2) * v); if (fw >= 2) blit(f, x + 1, y + 1, fw, h - 2); }
+function stat(icon, s, x, y, col = 0xE6ECFF) { blit('icon_' + icon, x, y, 16, 16); text(s, x + 20, y + 4, col); }
+function item(col, x, y) { // fake item icon: shaded block
+  fill(x + 1, y + 1, 14, 14, '#101018'); fill(x + 2, y + 2, 12, 12, col);
+  fill(x + 2, y + 2, 12, 2, 'rgba(255,255,255,.35)'); fill(x + 2, y + 12, 12, 2, 'rgba(0,0,0,.3)');
+}
+
+const W = 316, H = 206; let L, T;
+const TEXT = 0xE6ECFF, MUTED = 0x9FB2D8, BRASS = 0xFAD682, DARK = 0x2A1A08, GREEN = 0x7CF29A, RED = 0xFF6B6B, YELLOW = 0xFFD86B;
+function frame(tab, tier, phase) {
+  if (img.bg && img.bg.width) c.drawImage(img.bg, 0, 0, cv.width, cv.height); else { fill(0, 0, GW, GH, '#3a5a2a'); }
+  fill(0, 0, GW, GH, 'rgba(8,10,18,.63)');
+  L = (GW - W) / 2; T = (GH - H) / 2 + 8;
+  const tabs = [['Blueprints', 'file'], ['Materials', 'chest'], ['Overview', 'clock']];
+  tabs.forEach(([n, ic], i) => {
+    const x = L + 10 + i * 100, y = T - 20, sel = tab === i;
+    blit(sel ? 'tab_selected' : 'tab', x, sel ? y : y + 3, 96, sel ? 24 : 19);
+    blit('icon_' + ic, x + 6, y + (sel ? 3 : 5), 16, 16);
+    text(n, x + 26, y + (sel ? 7 : 9), sel ? BRASS : MUTED);
+  });
+  blit('panel', L, T, W, H); blit('blueprint', L + 8, T + 32, W - 16, H - 40);
+  blit('header', L + 30, T + 8, W - 60, 18); blit('badge_' + tier, L + 10, T + 5, 24, 24);
+  text(tier[0].toUpperCase() + tier.slice(1) + ' Minion', L + 40, T + 13, 0xFFF4D6, true, true);
+  text(phase, L + W - 36 - tw(phase), T + 13, BRASS);
+  blit('icon_heart', L + W - 30, T + 9, 16, 16);
+}
+const mats = [['Oak Planks', 412, 412, '#b8945f'], ['Cobblestone', 268, 268, '#8a8a8a'], ['Spruce Log', 96, 64, '#5a3d22'], ['Glass Pane', 48, 48, '#bfe6f5'],
+  ['Stone Bricks', 180, 72, '#7d7d7d'], ['Oak Stairs', 74, 74, '#a8844f'], ['Dark Oak Slab', 60, 12, '#3f2a14'], ['Lantern', 12, 12, '#f2b04a'], ['Oak Door', 4, 4, '#9c7a45'], ['Torch', 16, 0, '#ffd34a']];
+
+function blueprints() {
+  frame(0, 'diamond', 'Idle');
+  const lx = L + 14, ly = T + 38;
+  const files = ['medieval_house.litematic', 'windmill.litematic', 'castle/gatehouse.schem', 'castle/tower_round.schem', 'market_stall.nbt', 'bridge_stone.litematic'];
+  files.forEach((f, i) => { const y = ly + i * 21, sel = i === 0; blit(sel ? 'row_done' : 'row', lx, y, 150, 20); blit('icon_file', lx + 3, y + 2, 16, 16); text(f, lx + 22, y + 6, sel ? 0xFFFFFF : TEXT); });
+  blit('icon_arrow_left', lx, T + 164, 16, 16); blit('icon_arrow_right', lx + 134, T + 164, 16, 16); ctext('Page 1 / 2', lx + 75, T + 168, TEXT);
+  const dx = L + 170, dy = ly, dw = W - 184; blit('inset', dx, dy, dw, 126);
+  let tx = dx + 6, ty = dy + 6;
+  text('medieval_house', tx, ty, BRASS); ty += 14;
+  stat('size', '17 × 14 × 21', tx, ty); ty += 18; stat('blocks', '1,302 blocks', tx, ty); ty += 18;
+  stat('chest', '23 block types', tx, ty); ty += 18; stat('clock', '≈ 2m 9s', tx, ty);
+  button('Load Blueprint', dx, T + 168, dw, 20, true, true);
+}
+function materials() {
+  frame(1, 'copper', 'Collecting');
+  mats.forEach(([n, need, have, col], i) => {
+    const x = L + 14 + (i % 2) * 146, y = T + 38 + Math.floor(i / 2) * 24, done = have >= need;
+    blit(done ? 'row_done' : 'row', x, y, 142, 22); blit('slot', x + 2, y + 2, 18, 18); item(col, x + 3, y + 3);
+    text(n, x + 24, y + 3, 0xFFFFFF); text(have + ' / ' + need, x + 24, y + 12, done ? GREEN : MUTED);
+    progress(x + 104, y + 14, 34, 5, have / need, done ? 'progress_fill' : 'progress_fill_warn');
+    if (done) blit('icon_check', x + 122, y + 1, 12, 12);
+  });
+  blit('icon_arrow_left', L + 14, T + 158, 16, 16); blit('icon_arrow_right', L + W - 30, T + 158, 16, 16); ctext('Page 1 / 3', L + W / 2, T + 162, TEXT);
+  button('Deposit from Inventory', L + 14, T + 176, 140, 20, true, true);
+  text('Materials: 1,068 / 1,302', L + 162, T + 176, TEXT); progress(L + 162, T + 187, W - 176, 8, 0.82, 'progress_fill_blue');
+}
+function overview(ready, tier) {
+  frame(2, tier, 'Collecting');
+  const sx = L + 12, sy = T + 36; blit('inset', sx, sy, 136, 162);
+  let tx = sx + 6, ty = sy + 6;
+  text('medieval_house', tx, ty, BRASS); ty += 14;
+  stat('size', '17 × 14 × 21', tx, ty); ty += 19; stat('blocks', '1,302 blocks', tx, ty); ty += 19;
+  const time = tier === 'gold' ? '≈ 3m 35s' : tier === 'copper' ? '≈ 19m 6s' : '≈ 7m 10s';
+  stat('clock', time, tx, ty); ty += 19;
+  const max = { copper: 600, gold: 300, diamond: 5000 }[tier], rem = tier === 'gold' ? 300 : tier === 'copper' ? 600 : 4870;
+  stat('heart', 'Durability: ' + rem.toLocaleString('en') + ' / ' + max.toLocaleString('en'), tx, ty); ty += 17;
+  progress(tx, ty, 122, 6, rem / max, rem < 1302 ? 'progress_fill_warn' : 'progress_fill'); ty += 12;
+  if (rem < 1302) { blit('icon_warning', tx, ty, 16, 16); text('Not enough durability!', tx + 20, ty + 1, RED); text('It will break after', tx + 20, ty + 11, RED); text(rem + ' blocks.', tx + 20, ty + 21, RED); }
+  const cx = L + 148 + (W - 156) / 2, ax = cx - 20, ay = T + 52;
+  blit('slot', ax - 4, ay - 4, 48, 48); blit(ready ? 'accept_hover' : 'accept_locked', ax, ay, 40, 40);
+  ctext('ACCEPT BUILD', cx, T + 100, ready ? GREEN : MUTED, true);
+  ctext(ready ? 'All materials delivered' : '234 items missing', cx, T + 114, ready ? TEXT : RED);
+  ctext('Then position the hologram', cx, T + 132, MUTED);
+  button('Clear', L + 156, T + 176, 72, 20); button('Pick Up', L + W - 84, T + 176, 72, 20);
+}
+function hud() {
+  if (img.bg && img.bg.width) c.drawImage(img.bg, 0, 0, cv.width, cv.height); else fill(0, 0, GW, GH, '#3a5a2a');
+  const w = 260, h = 64, x = GW / 2 - w / 2, y = 6;
+  blit('panel', x, y, w, h); blit('blueprint', x + 6, y + 6, w - 12, h - 12); blit('icon_file', x + 10, y + 9, 16, 16);
+  text('Placing: medieval_house', x + 30, y + 13, BRASS);
+  text('Rotation 90° · Mirror off · Following crosshair', x + 12, y + 28, TEXT);
+  text('[R] Rotate  [M] Mirror  [Up]/[Down] Height', x + 12, y + 40, MUTED);
+  text('[K] Lock  [Enter] Build!  [Backspace] Cancel', x + 12, y + 50, MUTED);
+}
+load().then(() => {
+  ({ blueprints, materials, overview_ready: () => overview(true, 'diamond'), overview_locked: () => overview(false, 'gold'), hud })[page]();
+  window.READY = true;
+});
+</script></body></html>

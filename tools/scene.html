@@ -1,0 +1,118 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;overflow:hidden;background:#000}</style>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js"}}</script></head><body>
+<script type="module">
+// Concept render: a minion building a house, the unbuilt part shown as the mod's translucent hologram.
+import * as THREE from 'three';
+const q = new URLSearchParams(location.search);
+const W = +q.get('w') || 1200, H = +q.get('h') || 780, built = +(q.get('built') ?? 0.45);
+const model = await (await fetch('model.json')).json();
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setSize(W, H); r.outputColorSpace = THREE.SRGBColorSpace; r.shadowMap.enabled = true; document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fc3ff); scene.fog = new THREE.Fog(0x8fc3ff, 40, 90);
+
+function noiseTex(base, var_, seed, opts = {}) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 16; const x = cv.getContext('2d');
+  let s = seed; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) {
+    const k = 1 + (rnd() - .5) * var_; const c = base.map(v => Math.max(0, Math.min(255, v * k)));
+    x.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; x.fillRect(i, j, 1, 1);
+  }
+  if (opts.planks) { x.fillStyle = 'rgba(0,0,0,.25)'; for (let y = 3; y < 16; y += 4) x.fillRect(0, y, 16, 1); }
+  if (opts.top) { x.fillStyle = opts.top; x.fillRect(0, 0, 16, 3); }
+  const t = new THREE.CanvasTexture(cv); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const M = {
+  grass: new THREE.MeshLambertMaterial({ map: noiseTex([96, 160, 60], .35, 3) }),
+  dirt: new THREE.MeshLambertMaterial({ map: noiseTex([134, 96, 67], .3, 5) }),
+  cobble: new THREE.MeshLambertMaterial({ map: noiseTex([128, 128, 128], .5, 7) }),
+  planks: new THREE.MeshLambertMaterial({ map: noiseTex([176, 140, 88], .18, 11, { planks: 1 }) }),
+  log: new THREE.MeshLambertMaterial({ map: noiseTex([96, 70, 40], .3, 13) }),
+  roof: new THREE.MeshLambertMaterial({ map: noiseTex([70, 46, 28], .25, 17, { planks: 1 }) }),
+  glass: new THREE.MeshLambertMaterial({ color: 0xcfefff, transparent: true, opacity: .45 }),
+};
+const box = new THREE.BoxGeometry(1, 1, 1);
+// ground
+for (let x = -24; x < 24; x++) for (let z = -24; z < 24; z++) {
+  const m = new THREE.Mesh(box, M.grass); m.position.set(x + .5, -.5, z + .5); m.receiveShadow = true; scene.add(m);
+}
+// blueprint: 9x7 house
+const bp = [];
+const X = 9, Z = 7;
+for (let y = 0; y < 9; y++) for (let x = 0; x < X; x++) for (let z = 0; z < Z; z++) {
+  let mat = null;
+  const edgeX = x === 0 || x === X - 1, edgeZ = z === 0 || z === Z - 1;
+  if (y === 0) mat = 'cobble';
+  else if (y <= 4) {
+    if (edgeX && edgeZ) mat = 'log';
+    else if (edgeX || edgeZ) {
+      mat = 'planks';
+      if (y >= 2 && y <= 3 && ((edgeZ && (x === 2 || x === 6)) || (edgeX && z === 3))) mat = 'glass';
+      if (z === 0 && x === 4 && y <= 2) mat = null; // door
+    }
+  } else {
+    const h = y - 5; // gable roof along x
+    if (z === h || z === Z - 1 - h) mat = 'roof';
+    else if ((x === 0 || x === X - 1) && z > h && z < Z - 1 - h) mat = 'planks';
+  }
+  if (mat) bp.push({ x: x - 4, y, z: z - 3, mat });
+}
+bp.sort((a, b) => a.y - b.y || a.x - b.x || a.z - b.z);
+const nBuilt = Math.floor(bp.length * built);
+const ghostAll = built === 0;
+const ghostMat = new THREE.MeshBasicMaterial({ color: 0x4f8dff, transparent: true, opacity: .42, depthWrite: false });
+const ghostRed = new THREE.MeshBasicMaterial({ color: 0xff5050, transparent: true, opacity: .4, depthWrite: false });
+const g2 = new THREE.BoxGeometry(.94, .94, .94);
+bp.forEach((b, i) => {
+  let m;
+  if (i < nBuilt) { m = new THREE.Mesh(box, M[b.mat]); m.castShadow = m.receiveShadow = true; }
+  else { m = new THREE.Mesh(g2, b.mat === 'glass' ? ghostMat : ghostMat); m.renderOrder = 2; }
+  m.position.set(b.x + .5, b.y + .5, b.z + .5); scene.add(m);
+});
+// bounding frame
+const frameMat = new THREE.MeshBasicMaterial({ color: 0xfad682 });
+const fb = (x0, y0, z0, x1, y1, z1) => { const t = .05, g = new THREE.BoxGeometry(Math.abs(x1 - x0) + t, Math.abs(y1 - y0) + t, Math.abs(z1 - z0) + t);
+  const m = new THREE.Mesh(g, frameMat); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); scene.add(m); };
+const [ax, ay, az, bx, by, bz] = [-4, 0, -3, 5, 9, 4];
+for (const y of [ay, by]) { fb(ax, y, az, bx, y, az); fb(ax, y, bz, bx, y, bz); fb(ax, y, az, ax, y, bz); fb(bx, y, az, bx, y, bz); }
+for (const [x, z] of [[ax, az], [bx, az], [ax, bz], [bx, bz]]) fb(x, ay, z, x, by, z);
+
+// minion (same mapping as preview.html)
+function cubeGeometry(from, size, uv, mirror) {
+  const [x0, y0, z0] = from, [w, h, d] = size, [u, v] = uv, x1 = x0 + w, y1 = y0 + h, z1 = z0 + d;
+  const V = [[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];
+  const F = [{v:[5,1,2,6],r:[u+d+w,v+d,u+d+w+d,v+d+h],n:[1,0,0]},{v:[0,4,7,3],r:[u,v+d,u+d,v+d+h],n:[-1,0,0]},{v:[5,4,0,1],r:[u+d,v,u+d+w,v+d],n:[0,-1,0]},
+    {v:[2,3,7,6],r:[u+d+w,v+d,u+d+w+w,v],n:[0,1,0]},{v:[1,0,3,2],r:[u+d,v+d,u+d+w,v+d+h],n:[0,0,-1]},{v:[4,5,6,7],r:[u+d+w+d,v+d,u+d+w+d+w,v+d+h],n:[0,0,1]}];
+  const pos = [], uvs = [], nor = [], idx = [];
+  for (const f of F) { let [u1, v1, u2, v2] = f.r; if (mirror) [u1, u2] = [u2, u1]; const fu = [[u2,v1],[u1,v1],[u1,v2],[u2,v2]], b = pos.length / 3;
+    f.v.forEach((vi, k) => { pos.push(...V[vi]); uvs.push(fu[k][0] / 64, 1 - fu[k][1] / 64); nor.push(...f.n); }); idx.push(b, b+1, b+2, b, b+2, b+3); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setIndex(idx); return g;
+}
+function minion(tier, pose) {
+  const t = new THREE.TextureLoader().load('tex/minion_' + tier + '.png'); t.magFilter = t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide, alphaTest: .5 });
+  const root = new THREE.Group(), flip = new THREE.Group(); flip.scale.set(-1, -1, 1); flip.position.y = 24; root.add(flip);
+  const nodes = {};
+  for (const [n, p, pv] of model.parts) { nodes[n] = new THREE.Group(); nodes[n].userData.pv = pv; }
+  for (const [n, p, pv] of model.parts) { const pp = p ? model.parts.find(z => z[0] === p)[2] : [0,0,0]; nodes[n].position.set(pv[0]-pp[0], pv[1]-pp[1], pv[2]-pp[2]); (p ? nodes[p] : flip).add(nodes[n]); }
+  for (const [part, cn, fr, sz, uv, mir] of model.cubes) { const pv = nodes[part].userData.pv; const m = new THREE.Mesh(cubeGeometry([fr[0]-pv[0], fr[1]-pv[1], fr[2]-pv[2]], sz, uv, mir), mat); m.castShadow = true; nodes[part].add(m); }
+  for (const k in pose) nodes[k].rotation.set(...pose[k]);
+  root.scale.setScalar(0.62 / 16); return root;
+}
+const next = bp.slice(nBuilt).find(b => b.z === -3) || bp[nBuilt];
+const m1 = minion(q.get('tier') || 'diamond', { right_arm: [-2.3, 0, 0.1], left_arm: [-0.35, 0, -0.45], right_leg: [0.3, 0, 0], left_leg: [0.1, 0, 0], head: [0.35, 0, 0] });
+m1.position.set(next.x + .5 - 0.3, next.y + .5 + 0.7, next.z + .5 - 1.25); m1.rotation.y = 0.25; scene.add(m1);
+// sparks
+const sp = new THREE.MeshBasicMaterial({ color: 0xfff2a0 });
+for (let i = 0; i < 10; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(.06, .06, .06), sp); s.position.set(next.x + .5 + (Math.random() - .5) * .9, next.y + .6 + Math.random() * .6, next.z + .5 + (Math.random() - .5) * .9); scene.add(s); }
+// idle copper minion watching
+const m2 = minion('copper', { left_arm: [-1.5, 0, 0], head: [-0.2, 0.4, 0] }); m2.position.set(-5.2, 0, -6.2); m2.rotation.y = 0.9; scene.add(m2);
+
+scene.add(new THREE.HemisphereLight(0xe0ecff, 0x506030, 1.5));
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(-20, 30, -14); sun.castShadow = true;
+Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20 }); sun.shadow.mapSize.set(2048, 2048); scene.add(sun);
+const cam = new THREE.PerspectiveCamera(50, W / H, .1, 200); cam.position.set(-8.5, 6.2, -11.5); cam.lookAt(0.5, 2.8, 0);
+r.render(scene, cam);
+setTimeout(() => { r.render(scene, cam); window.READY = true; }, 800);
+</script></body></html>
