@@ -63,6 +63,8 @@ public final class ModNetwork {
     /** Simple button actions from the minion GUI. */
     public record Action(int entityId, int action) implements CustomPacketPayload {
         public static final int REFRESH = 0, DEPOSIT = 1, ACCEPT = 2, CANCEL = 3, PICKUP = 4, CLEAR = 5, CRAFT_ALL = 6, CLEAR_QUEUE = 7;
+        /** action = TOGGLE_SKIP + raw item id: skip / include that material. */
+        public static final int TOGGLE_SKIP = 1 << 20;
         public static final Type<Action> TYPE = new Type<>(BuildMinions.id("action"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Action> CODEC = CustomPacketPayload.codec(Action::write, Action::new);
 
@@ -89,7 +91,7 @@ public final class ModNetwork {
 
     // ================================================================= clientbound
 
-    public record MaterialLine(Item item, int need, int have) {}
+    public record MaterialLine(Item item, int need, int have, boolean skipped) {}
 
     /** Workshop info: what can be crafted now, the queue and spare raw materials. */
     public record CraftLine(Item item, int count, int total, String note) {}
@@ -111,7 +113,7 @@ public final class ModNetwork {
             boolean creative = buf.readBoolean(), open = buf.readBoolean();
             int n = buf.readVarInt();
             List<MaterialLine> mats = new ArrayList<>(n);
-            for (int i = 0; i < n; i++) mats.add(new MaterialLine(ITEM.decode(buf), buf.readVarInt(), buf.readVarInt()));
+            for (int i = 0; i < n; i++) mats.add(new MaterialLine(ITEM.decode(buf), buf.readVarInt(), buf.readVarInt(), buf.readBoolean()));
             boolean ws = buf.readBoolean();
             float cp = buf.readFloat();
             return new MinionState(id, tier, phase, used, upgrade, maxBlocks, progress, total, bp, sx, sy, sz, placeable, creative, open, mats,
@@ -126,7 +128,7 @@ public final class ModNetwork {
             buf.writeVarInt(sizeX); buf.writeVarInt(sizeY); buf.writeVarInt(sizeZ); buf.writeVarInt(placeable);
             buf.writeBoolean(creative); buf.writeBoolean(open);
             buf.writeVarInt(materials.size());
-            for (MaterialLine m : materials) { ITEM.encode(buf, m.item()); buf.writeVarInt(m.need()); buf.writeVarInt(m.have()); }
+            for (MaterialLine m : materials) { ITEM.encode(buf, m.item()); buf.writeVarInt(m.need()); buf.writeVarInt(m.have()); buf.writeBoolean(m.skipped()); }
             buf.writeBoolean(workstation);
             buf.writeFloat(craftProgress);
             writeLines(buf, craftable); writeLines(buf, queue); writeLines(buf, raw);

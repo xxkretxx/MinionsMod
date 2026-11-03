@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
 env:
-  RELEASE_VERSION: '1.1.0'
+  RELEASE_VERSION: '1.2.0'
 permissions:
   contents: write
 jobs:
