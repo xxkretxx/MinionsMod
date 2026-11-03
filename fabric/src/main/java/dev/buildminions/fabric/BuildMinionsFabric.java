@@ -43,6 +43,7 @@ public class BuildMinionsFabric implements ModInitializer {
             msg.write(buf);
             ServerPlayNetworking.send(player, msg.id(), buf);
         };
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(DebugProbe::run);
         BuildMinions.LOG.info("Build Minions ready – go craft a minion!");
     }
 
