@@ -1,0 +1,34 @@
+{
+ "variants": {
+  "facing=north,lit=false": {
+   "model": "buildminions:block/minion_workstation"
+  },
+  "facing=north,lit=true": {
+   "model": "buildminions:block/minion_workstation_on"
+  },
+  "facing=east,lit=false": {
+   "model": "buildminions:block/minion_workstation",
+   "y": 90
+  },
+  "facing=east,lit=true": {
+   "model": "buildminions:block/minion_workstation_on",
+   "y": 90
+  },
+  "facing=south,lit=false": {
+   "model": "buildminions:block/minion_workstation",
+   "y": 180
+  },
+  "facing=south,lit=true": {
+   "model": "buildminions:block/minion_workstation_on",
+   "y": 180
+  },
+  "facing=west,lit=false": {
+   "model": "buildminions:block/minion_workstation",
+   "y": 270
+  },
+  "facing=west,lit=true": {
+   "model": "buildminions:block/minion_workstation_on",
+   "y": 270
+  }
+ }
+}

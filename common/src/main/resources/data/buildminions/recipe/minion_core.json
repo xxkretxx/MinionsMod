@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ARA",
+    "RER",
+    "ARA"
+  ],
+  "key": {
+    "A": "minecraft:amethyst_shard",
+    "R": "minecraft:redstone",
+    "E": "minecraft:ender_pearl"
+  },
+  "result": {
+    "id": "buildminions:minion_core",
+    "count": 1
+  }
+}
