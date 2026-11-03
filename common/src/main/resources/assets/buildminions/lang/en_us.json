@@ -102,5 +102,8 @@
   "gui.buildminions.deposit_raw": "Deposit Items",
   "gui.buildminions.crafting": "Working at the workstation...",
   "message.buildminions.nothing_to_craft": "§7Nothing can be crafted from the materials the minion has.",
-  "gui.buildminions.creative_short": "Creative: free"
+  "gui.buildminions.creative_short": "Creative: free",
+  "gui.buildminions.skipped": "Skipped – won't be built",
+  "gui.buildminions.click_skip": "%s – %s / %s · Click to skip this material",
+  "gui.buildminions.click_include": "%s is skipped · Click to build it again"
 }

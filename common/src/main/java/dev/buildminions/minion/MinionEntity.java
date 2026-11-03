@@ -78,6 +78,8 @@ public class MinionEntity extends Mob {
     // ---- server state
     private Schematic schematic;
     private final Map<Item, Integer> stored = new LinkedHashMap<>();
+    /** Materials the owner chose to leave out of the build. */
+    private final java.util.Set<Item> skipped = new java.util.LinkedHashSet<>();
     private List<Schematic.Placement> queue;
     private int queueIndex;
     private int cooldown;
@@ -210,7 +212,7 @@ public class MinionEntity extends Mob {
         if (queue == null) queue = schematic.transformed(anchor, rotation, mirror);
         // skip blocks that already match the blueprint (free)
         int guard = 0;
-        while (queueIndex < queue.size() && guard++ < 64 && level.getBlockState(queue.get(queueIndex).pos()) == queue.get(queueIndex).state()) {
+        while (queueIndex < queue.size() && guard++ < 64 && (isSkipped(queue.get(queueIndex).state()) || level.getBlockState(queue.get(queueIndex).pos()) == queue.get(queueIndex).state())) {
             queueIndex++;
         }
         if (queueIndex >= queue.size()) { finishBuild(level); return; }
@@ -245,6 +247,7 @@ public class MinionEntity extends Mob {
         queueIndex++;
         BlockState current = level.getBlockState(p.pos());
         if (!current.isAir() && !current.canBeReplaced()) { skippedThisJob++; return; }
+        if (isSkipped(p.state())) return; // left out by the owner
         Schematic.Cost cost = Schematic.costOf(p.state());
         if (cost != null && !creativeJob) {
             int have = stored.getOrDefault(cost.item(), 0);
@@ -315,6 +318,7 @@ public class MinionEntity extends Mob {
         Map<Item, Integer> missing = new LinkedHashMap<>();
         if (schematic == null) return missing;
         for (Map.Entry<Item, Integer> e : schematic.requirements().entrySet()) {
+            if (skipped.contains(e.getKey())) continue;
             int m = e.getValue() - stored.getOrDefault(e.getKey(), 0);
             if (m > 0) missing.put(e.getKey(), m);
         }
@@ -331,7 +335,7 @@ public class MinionEntity extends Mob {
         Map<Item, Integer> spare = new LinkedHashMap<>();
         Map<Item, Integer> req = schematic != null ? schematic.requirements() : Map.of();
         for (Map.Entry<Item, Integer> e : stored.entrySet()) {
-            int s = e.getValue() - req.getOrDefault(e.getKey(), 0);
+            int s = e.getValue() - (skipped.contains(e.getKey()) ? 0 : req.getOrDefault(e.getKey(), 0));
             if (s > 0) spare.put(e.getKey(), s);
         }
         return spare;
@@ -471,6 +475,15 @@ public class MinionEntity extends Mob {
 
     public void handleAction(ServerPlayer player, int action) {
         MinionPhase phase = getPhase();
+        if (action >= ModNetwork.Action.TOGGLE_SKIP) {
+            Item item = BuiltInRegistries.ITEM.byId(action - ModNetwork.Action.TOGGLE_SKIP);
+            if (schematic != null && phase != MinionPhase.BUILDING && phase != MinionPhase.BREAKING && item != null) {
+                if (!skipped.remove(item)) skipped.add(item);
+                playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.4f, skipped.contains(item) ? 0.8f : 1.3f);
+            }
+            sendState(player, false);
+            return;
+        }
         switch (action) {
             case ModNetwork.Action.REFRESH -> {}
             case ModNetwork.Action.DEPOSIT -> { if (phase == MinionPhase.COLLECTING || phase == MinionPhase.CRAFTING) deposit(player); }
@@ -501,6 +514,7 @@ public class MinionEntity extends Mob {
             case ModNetwork.Action.CLEAR -> {
                 if (phase == MinionPhase.COLLECTING || phase == MinionPhase.DONE) {
                     schematic = null;
+                    skipped.clear();
                     dropStoredTo(player);
                     setPhase(MinionPhase.IDLE);
                 }
@@ -529,7 +543,7 @@ public class MinionEntity extends Mob {
         this.cooldown = 10;
         setPhase(MinionPhase.BUILDING);
         playSound(SoundEvents.BEACON_ACTIVATE, 0.6f, 1.6f);
-        int blocks = schematic.placeableCount();
+        int blocks = effectivePlaceable();
         if (blocks > getRemainingBlocks()) {
             player.sendSystemMessage(Component.translatable("message.buildminions.will_break", getRemainingBlocks(), blocks));
         }
@@ -551,6 +565,7 @@ public class MinionEntity extends Mob {
             Schematic s = Schematic.load(tag);
             if (s.placeableCount() > Schematic.MAX_BLOCKS) throw new IllegalArgumentException("too many blocks");
             this.schematic = s;
+            this.skipped.clear();
             this.queue = null;
             this.anchor = null;
             setPhase(MinionPhase.COLLECTING);
@@ -569,6 +584,7 @@ public class MinionEntity extends Mob {
         Inventory inv = player.getInventory();
         boolean moved = false;
         for (Map.Entry<Item, Integer> e : schematic.requirements().entrySet()) {
+            if (skipped.contains(e.getKey())) continue;
             int have = stored.getOrDefault(e.getKey(), 0);
             int missing = e.getValue() - have;
             for (int i = 0; i < inv.getContainerSize() && missing > 0; i++) {
@@ -613,11 +629,31 @@ public class MinionEntity extends Mob {
         }
     }
 
+    /** Blocks that will really be placed (skipped materials left out). */
+    private int effectivePlaceable() {
+        if (schematic == null) return 0;
+        if (skipped.isEmpty()) return schematic.placeableCount();
+        int[] perPalette = new int[schematic.palette.size()];
+        for (int b : schematic.blocks) perPalette[b]++;
+        int n = 0;
+        for (int i = 0; i < perPalette.length; i++) {
+            var st = schematic.palette.get(i);
+            if (perPalette[i] > 0 && Schematic.isPlaceable(st) && !isSkipped(st)) n += perPalette[i];
+        }
+        return n;
+    }
+
+    private boolean isSkipped(BlockState state) {
+        if (skipped.isEmpty()) return false;
+        Schematic.Cost c = Schematic.costOf(state);
+        return c != null && skipped.contains(c.item());
+    }
+
     private int missingCount() {
         if (schematic == null) return Integer.MAX_VALUE;
         int missing = 0;
         for (Map.Entry<Item, Integer> e : schematic.requirements().entrySet())
-            missing += Math.max(0, e.getValue() - stored.getOrDefault(e.getKey(), 0));
+            if (!skipped.contains(e.getKey())) missing += Math.max(0, e.getValue() - stored.getOrDefault(e.getKey(), 0));
         return missing;
     }
 
@@ -668,9 +704,9 @@ public class MinionEntity extends Mob {
         String name = "";
         if (schematic != null) {
             for (Map.Entry<Item, Integer> e : schematic.requirements().entrySet())
-                lines.add(new ModNetwork.MaterialLine(e.getKey(), e.getValue(), Math.min(e.getValue(), stored.getOrDefault(e.getKey(), 0))));
+                lines.add(new ModNetwork.MaterialLine(e.getKey(), e.getValue(), Math.min(e.getValue(), stored.getOrDefault(e.getKey(), 0)), skipped.contains(e.getKey())));
             sx = schematic.sizeX; sy = schematic.sizeY; sz = schematic.sizeZ;
-            placeable = schematic.placeableCount();
+            placeable = effectivePlaceable();
             name = schematic.name;
         }
         int total = queue != null ? queue.size() : placeable;
@@ -709,6 +745,7 @@ public class MinionEntity extends Mob {
         if (owner != null) out.store("Owner", UUIDUtil.CODEC, owner);
         if (schematic != null) out.store("Blueprint", CompoundTag.CODEC, schematic.save());
         out.store("Stored", STORED_CODEC, new LinkedHashMap<>(stored));
+        out.store("Skipped", BuiltInRegistries.ITEM.byNameCodec().listOf(), new ArrayList<>(skipped));
         ListTag q = new ListTag();
         for (QueuedJob j : craftQueue) {
             CompoundTag t = new CompoundTag();
@@ -742,6 +779,8 @@ public class MinionEntity extends Mob {
         }).orElse(null);
         stored.clear();
         in.read("Stored", STORED_CODEC).ifPresent(stored::putAll);
+        skipped.clear();
+        in.read("Skipped", BuiltInRegistries.ITEM.byNameCodec().listOf()).ifPresent(skipped::addAll);
         craftQueue.clear();
         pendingQueueTag = in.read("CraftQueue", CompoundTag.CODEC).map(t -> t.getListOrEmpty("Jobs")).filter(l -> !l.isEmpty()).orElse(null);
         this.anchor = in.read("Anchor", BlockPos.CODEC).orElse(null);

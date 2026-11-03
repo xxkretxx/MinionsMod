@@ -71,13 +71,13 @@ public class MinionScreen extends Screen {
 
     private int missing() {
         int m = 0;
-        for (ModNetwork.MaterialLine l : state.materials()) m += Math.max(0, l.need() - l.have());
+        for (ModNetwork.MaterialLine l : state.materials()) if (!l.skipped()) m += Math.max(0, l.need() - l.have());
         return m;
     }
 
     private int needTotal() {
         int n = 0;
-        for (ModNetwork.MaterialLine l : state.materials()) n += l.need();
+        for (ModNetwork.MaterialLine l : state.materials()) if (!l.skipped()) n += l.need();
         return n;
     }
 
@@ -271,17 +271,32 @@ public class MinionScreen extends Screen {
             if (idx >= mats.size()) break;
             ModNetwork.MaterialLine m = mats.get(idx);
             int x = left + 14 + (i % 2) * 146, y = top + 38 + (i / 2) * 24;
-            boolean done = m.have() >= m.need() || state.creative();
-            Ui.sprite(g, done ? Ui.ROW_DONE : Ui.ROW, x, y, 142, 22);
+            boolean skip = m.skipped();
+            boolean done = skip || m.have() >= m.need() || state.creative();
+            Ui.sprite(g, done && !skip ? Ui.ROW_DONE : Ui.ROW, x, y, 142, 22);
             Ui.sprite(g, Ui.SLOT, x + 2, y + 2, 18, 18);
             ItemStack stack = new ItemStack(m.item());
             g.renderItem(stack, x + 3, y + 3);
-            g.drawString(font, Ui.trim(font, stack.getHoverName().getString(), 76), x + 24, y + 3, Ui.WHITE);
-            String count = Ui.num(Math.min(m.have(), m.need())) + " / " + Ui.num(m.need());
-            g.drawString(font, count, x + 24, y + 12, done ? Ui.GREEN : Ui.MUTED);
-            Ui.progress(g, x + 104, y + 14, 34, 5, m.need() == 0 ? 1f : m.have() / (float) m.need(), done ? Ui.PROGRESS_FILL : Ui.PROGRESS_WARN);
-            if (done) Ui.sprite(g, Ui.icon("check"), x + 122, y + 1, 12, 12);
-            hitTooltip(x, y, 142, 22, Component.translatable("gui.buildminions.mat_tooltip", stack.getHoverName(), Ui.num(m.have()), Ui.num(m.need())));
+            g.drawString(font, Ui.trim(font, stack.getHoverName().getString(), 76), x + 24, y + 3, skip ? Ui.MUTED : Ui.WHITE);
+            if (skip) {
+                g.fill(x + 2, y + 2, x + 140, y + 20, 0x8C0A0C14);
+                g.drawString(font, Component.translatable("gui.buildminions.skipped"), x + 24, y + 12, 0xFFFF9A9A);
+                Ui.sprite(g, Ui.icon("warning"), x + 122, y + 3, 16, 16);
+            } else {
+                String count = Ui.num(Math.min(m.have(), m.need())) + " / " + Ui.num(m.need());
+                g.drawString(font, count, x + 24, y + 12, done ? Ui.GREEN : Ui.MUTED);
+                Ui.progress(g, x + 104, y + 14, 34, 5, m.need() == 0 ? 1f : m.have() / (float) m.need(), done ? Ui.PROGRESS_FILL : Ui.PROGRESS_WARN);
+                if (done) Ui.sprite(g, Ui.icon("check"), x + 122, y + 1, 12, 12);
+            }
+            boolean canToggle = phase() != MinionPhase.BUILDING && phase() != MinionPhase.BREAKING;
+            hitTooltip(x, y, 142, 22, skip
+                    ? Component.translatable("gui.buildminions.click_include", stack.getHoverName())
+                    : Component.translatable("gui.buildminions.click_skip", stack.getHoverName(), Ui.num(m.have()), Ui.num(m.need())));
+            if (canToggle) {
+                final ModNetwork.MaterialLine line = m;
+                hits.add(new Hit(x, y, 142, 22, () -> Services.toServer.accept(new ModNetwork.Action(state.entityId(),
+                        ModNetwork.Action.TOGGLE_SKIP + net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(line.item())))));
+            }
         }
         pager(g, mx, my, left + 14, top + 160, W - 28, matPage, pages, p -> matPage = p);
 
