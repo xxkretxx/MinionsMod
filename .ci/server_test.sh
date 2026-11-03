@@ -14,4 +14,7 @@ sleep 4; pkill -f java || true; sleep 2
 echo "---- $P"; grep -E "Done \(|ERROR|Exception|Caused by" "server-$P.log" | grep -v "server.properties\|NoSuchFileException\|at java.base" | head -25
 grep -q "Done (" "server-$P.log" || { echo "SERVER DID NOT START"; tail -40 "server-$P.log"; exit 1; }
 if grep -E "/ERROR\]" "server-$P.log" | grep -qi buildminions; then echo "MOD DATA ERRORS"; exit 1; fi
+if grep -qE "Encountered an unexpected exception|This crash report has been saved" "server-$P.log"; then
+  echo "SERVER CRASHED"; grep -A40 "Encountered an unexpected exception" "server-$P.log" | head -60; exit 1
+fi
 echo "SERVER OK ($P)"
