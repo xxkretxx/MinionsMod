@@ -24,3 +24,25 @@ jobs:
             fabric/build/libs/*.jar
             neoforge/build/libs/*.jar
             forge/build/libs/*.jar
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew && (./gradlew :forge:compileJava > /dev/null 2>&1 || true)
+      - name: javap
+        run: |
+          JARS=$(find /home/runner/work ~/.gradle -name '*.jar' 2>/dev/null | grep -v sources | grep -vF 26.3)
+          findjar(){ for j in $JARS; do unzip -l "$j" 2>/dev/null | grep -q " $1$" && { echo "$j"; return; }; done; }
+          FORGE=$(findjar net/minecraftforge/network/ChannelBuilder.class)
+          FML=$(findjar net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext.class)
+          EB=$(findjar net/minecraftforge/eventbus/api/bus/EventBus.class)
+          FMC=$(findjar net/minecraft/client/gui/screens/Screen.class)
+          CP="$FORGE:$FML:$EB:$FMC"; echo "FML=$FML EB=$EB"
+          echo "##### payload pkg"; unzip -l "$FORGE" | grep -oE "net/minecraftforge/network/payload/[A-Za-z$]+\.class" | sort -u | tr '\n' ' '; echo
+          echo "##### client events"; unzip -l "$FORGE" | grep -oE "net/minecraftforge/client/event/[A-Za-z$]+\.class" | sort -u | tr '\n' ' '; echo
+          for c in net.minecraftforge.network.payload.PayloadConnection net.minecraftforge.network.payload.PayloadProtocol net.minecraftforge.network.payload.PayloadFlow net.minecraftforge.network.payload.PayloadHandler net.minecraftforge.event.network.CustomPayloadEvent\$Context net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext net.minecraftforge.client.gui.overlay.ForgeLayeredDraw net.minecraftforge.client.event.RenderLevelStageEvent net.minecraftforge.client.event.RenderLevelStageEvent\$AfterEntities net.minecraftforge.eventbus.api.bus.EventBus net.minecraftforge.eventbus.api.bus.BusGroup net.minecraftforge.network.PacketDistributor net.minecraftforge.fml.loading.FMLEnvironment; do
+            echo "===== $c"; javap -public -cp "$CP" "$c" 2>&1 | grep -v "^Compiled" | head -40; done
+
