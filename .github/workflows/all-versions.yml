@@ -1,8 +1,17 @@
-name: release
+name: all-versions
+# Builds every supported Minecraft version and uploads one zip as a (private) workflow artifact.
+# A public GitHub Release is only created when you run it manually with "publish_release" ticked.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Also publish a public GitHub Release'
+        type: boolean
+        default: false
+env:
+  RELEASE_VERSION: '1.1.0'
 permissions:
   contents: write
 jobs:
@@ -29,7 +38,7 @@ jobs:
           for loader in fabric forge neoforge; do
             [ -d "$loader/build/libs" ] || continue
             j=$(ls "$loader"/build/libs/*.jar | grep -vE -- '-(sources|javadoc|dev|all|slim)\.jar$' | head -1)
-            [ -n "$j" ] && cp "$j" "out/buildminions-${GITHUB_REF_NAME#v}-mc${{ matrix.mc }}-$loader.jar"
+            [ -n "$j" ] && cp "$j" "out/buildminions-${RELEASE_VERSION}-mc${{ matrix.mc }}-$loader.jar"
           done
           ls -la out
       - uses: actions/upload-artifact@v4
@@ -43,10 +52,14 @@ jobs:
       - run: |
           ls -la jars
           cd jars && zip -9 ../BuildMinions-all-versions.zip *.jar
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
+        with: { name: 'BuildMinions-all-versions', path: BuildMinions-all-versions.zip }
+      - if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        uses: softprops/action-gh-release@v2
         with:
-          name: 'Build Minions ${{ github.ref_name }}'
-          tag_name: '${{ github.ref_name }}'
+          name: 'Build Minions ${{ env.RELEASE_VERSION }}'
+          tag_name: 'v${{ env.RELEASE_VERSION }}'
+          target_commitish: main
           files: |
             BuildMinions-all-versions.zip
             jars/*.jar
