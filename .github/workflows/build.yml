@@ -26,19 +26,3 @@ jobs:
             fabric/build/libs/*.jar
             neoforge/build/libs/*.jar
             forge/build/libs/*.jar
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
-      - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && (./gradlew compileJava --continue > /dev/null 2>&1 || true)
-      - name: javap
-        run: |
-          JARS=$(find /home/runner/work ~/.gradle -name '*.jar' 2>/dev/null | grep -v sources | grep -vF 26.3 | grep -vF 1.21.11)
-          findjar(){ for j in $JARS; do unzip -l "$j" 2>/dev/null | grep -q " $1$" && { echo "$j"; return; }; done; }
-          FORGE=$(findjar net/minecraftforge/network/ChannelBuilder.class); EB=$(findjar net/minecraftforge/eventbus/api/IEventBus.class)
-          MC=$(findjar net/minecraft/client/gui/screens/Screen.class)
-          echo "##### forge client events"; unzip -l "$FORGE" | grep -oE "net/minecraftforge/client/event/[A-Za-z$]+\.class" | sort -u | sed 's#net/minecraftforge/client/event/##' | tr '\n' ' '; echo
-          for c in net.minecraftforge.client.event.CustomizeGuiOverlayEvent net.minecraftforge.client.event.RegisterGuiLayersEvent net.minecraftforge.client.event.RenderGuiLayerEvent net.minecraftforge.client.event.RenderGuiLayerEvent\$Post net.minecraftforge.client.event.CustomizeGuiOverlayEvent\$Chat; do echo "===== $c"; javap -public -cp "$FORGE:$EB:$MC" "$c" 2>&1 | grep -v "^Compiled" | head -20; done
