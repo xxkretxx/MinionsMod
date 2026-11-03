@@ -17,9 +17,8 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
@@ -37,9 +36,9 @@ public class BuildMinionsFabricClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(PlacementController::tick);
 
         WorldRenderEvents.AFTER_ENTITIES.register(ctx ->
-                GhostRenderer.render(ctx.matrices(), ctx.commandQueue(), ctx.worldState().cameraRenderState.pos));
+                GhostRenderer.renderImmediate(ctx.matrixStack(), ctx.camera().getPosition()));
 
-        HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, BuildMinions.id("placement_hud"), PlacementHud::extract);
+        HudRenderCallback.EVENT.register(PlacementHud::extract);
     }
 
     private static <T extends CustomPacketPayload> void registerClientbound(ModNetwork.Clientbound<T> p) {

@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -34,7 +34,7 @@ public final class CraftPlanner {
     public enum Kind { CRAFT, SMELT, CUT }
 
     /** One way of making an item. {@code ingredients} holds every slot (so 3 planks = 3 entries). */
-    public record Option(ResourceKey<Recipe<?>> id, Kind kind, Item result, int resultCount, List<Ingredient> ingredients) {}
+    public record Option(ResourceLocation id, Kind kind, Item result, int resultCount, List<Ingredient> ingredients) {}
 
     /** A queued step: run {@code option} {@code times} times. */
     public record Job(Option option, int times) {}
@@ -42,7 +42,7 @@ public final class CraftPlanner {
     private static final int MAX_DEPTH = 4;
     private static RecipeManager cachedManager;
     private static Map<Item, List<Option>> cachedIndex = Map.of();
-    private static Map<ResourceKey<Recipe<?>>, Option> cachedById = Map.of();
+    private static Map<ResourceLocation, Option> cachedById = Map.of();
 
     private CraftPlanner() {}
 
@@ -52,7 +52,7 @@ public final class CraftPlanner {
         RecipeManager rm = server.getRecipeManager();
         if (rm == cachedManager) return cachedIndex;
         Map<Item, List<Option>> idx = new HashMap<>();
-        Map<ResourceKey<Recipe<?>>, Option> byId = new HashMap<>();
+        Map<ResourceLocation, Option> byId = new HashMap<>();
         for (RecipeHolder<?> holder : rm.getRecipes()) {
             try {
                 Option o = toOption(holder, server.registryAccess());
@@ -72,13 +72,14 @@ public final class CraftPlanner {
         return idx;
     }
 
-    public static Option byId(MinecraftServer server, ResourceKey<Recipe<?>> id) {
+    public static Option byId(MinecraftServer server, ResourceLocation id) {
         index(server);
         return cachedById.get(id);
     }
 
     private static ItemStack sample(Ingredient ing) {
-        return ing.items().findFirst().map(h -> new ItemStack(h)).orElse(ItemStack.EMPTY);
+        ItemStack[] items = ing.getItems();
+        return items.length == 0 ? ItemStack.EMPTY : new ItemStack(items[0].getItem());
     }
 
     private static Option toOption(RecipeHolder<?> holder, net.minecraft.core.HolderLookup.Provider regs) {
@@ -89,14 +90,14 @@ public final class CraftPlanner {
         List<Ingredient> ings = new ArrayList<>();
         if (r instanceof ShapedRecipe shaped) {
             List<ItemStack> grid = new ArrayList<>();
-            for (var opt : shaped.getIngredients()) {
-                grid.add(opt.map(CraftPlanner::sample).orElse(ItemStack.EMPTY));
-                opt.ifPresent(ings::add);
+            for (Ingredient ing : shaped.getIngredients()) {
+                grid.add(ing.isEmpty() ? ItemStack.EMPTY : sample(ing));
+                if (!ing.isEmpty()) ings.add(ing);
             }
             result = shaped.assemble(CraftingInput.of(shaped.getWidth(), shaped.getHeight(), grid), regs);
             kind = Kind.CRAFT;
         } else if (r instanceof ShapelessRecipe shapeless) {
-            List<Ingredient> list = shapeless.placementInfo().ingredients();
+            List<Ingredient> list = shapeless.getIngredients();
             if (list.isEmpty() || list.size() > 9) return null;
             List<ItemStack> grid = new ArrayList<>();
             for (Ingredient i : list) { grid.add(sample(i)); ings.add(i); }
@@ -105,12 +106,14 @@ public final class CraftPlanner {
             result = shapeless.assemble(CraftingInput.of(w, w, grid), regs);
             kind = Kind.CRAFT;
         } else if (r instanceof AbstractCookingRecipe cooking && cooking.getType() == RecipeType.SMELTING) {
-            ings.add(cooking.input());
-            result = cooking.assemble(new SingleRecipeInput(sample(cooking.input())), regs);
+            Ingredient in = cooking.getIngredients().get(0);
+            ings.add(in);
+            result = cooking.assemble(new SingleRecipeInput(sample(in)), regs);
             kind = Kind.SMELT;
         } else if (r instanceof StonecutterRecipe cut) {
-            ings.add(cut.input());
-            result = cut.assemble(new SingleRecipeInput(sample(cut.input())), regs);
+            Ingredient in = cut.getIngredients().get(0);
+            ings.add(in);
+            result = cut.assemble(new SingleRecipeInput(sample(in)), regs);
             kind = Kind.CUT;
         } else {
             return null;
@@ -204,7 +207,7 @@ public final class CraftPlanner {
 
     private static boolean satisfyIngredient(Map<Item, List<Option>> idx, Ingredient ing, int amount, Map<Item, Integer> avail,
                                              List<Job> jobs, int depth, Map<Item, Boolean> visiting) {
-        List<Item> variants = ing.items().map(Holder::value).toList();
+        List<Item> variants = java.util.Arrays.stream(ing.getItems()).map(ItemStack::getItem).distinct().toList();
         // 1) take straight from stock, spreading over variants (oak + spruce planks both count as "planks")
         int left = amount;
         for (Item v : variants) {
@@ -227,11 +230,11 @@ public final class CraftPlanner {
     }
 
     private static List<Job> mergeJobs(List<Job> jobs) {
-        Map<ResourceKey<Recipe<?>>, Integer> order = new LinkedHashMap<>();
-        Map<ResourceKey<Recipe<?>>, Option> opts = new HashMap<>();
+        Map<ResourceLocation, Integer> order = new LinkedHashMap<>();
+        Map<ResourceLocation, Option> opts = new HashMap<>();
         for (Job j : jobs) { order.merge(j.option().id(), j.times(), Integer::sum); opts.put(j.option().id(), j.option()); }
         List<Job> out = new ArrayList<>();
-        for (Map.Entry<ResourceKey<Recipe<?>>, Integer> e : order.entrySet()) out.add(new Job(opts.get(e.getKey()), e.getValue()));
+        for (Map.Entry<ResourceLocation, Integer> e : order.entrySet()) out.add(new Job(opts.get(e.getKey()), e.getValue()));
         return out;
     }
 
@@ -240,9 +243,9 @@ public final class CraftPlanner {
         Map<Item, Integer> copy = new HashMap<>(stored);
         for (Ingredient ing : o.ingredients()) {
             boolean ok = false;
-            for (Holder<Item> h : (Iterable<Holder<Item>>) ing.items()::iterator) {
-                int have = copy.getOrDefault(h.value(), 0);
-                if (have > 0) { copy.put(h.value(), have - 1); ok = true; break; }
+            for (ItemStack st : ing.getItems()) {
+                int have = copy.getOrDefault(st.getItem(), 0);
+                if (have > 0) { copy.put(st.getItem(), have - 1); ok = true; break; }
             }
             if (!ok) return false;
         }

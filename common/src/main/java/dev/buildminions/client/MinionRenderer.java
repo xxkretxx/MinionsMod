@@ -5,11 +5,12 @@ import dev.buildminions.BuildMinions;
 import dev.buildminions.minion.MinionEntity;
 import dev.buildminions.minion.MinionTier;
 import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
 
-public class MinionRenderer extends MobRenderer<MinionEntity, MinionRenderState, MinionModel> {
+public class MinionRenderer extends MobRenderer<MinionEntity, MinionModel> {
     public static final ModelLayerLocation LAYER = new ModelLayerLocation(BuildMinions.id("minion"), "main");
     private static final ResourceLocation[] TEXTURES = new ResourceLocation[MinionTier.values().length];
 
@@ -23,26 +24,18 @@ public class MinionRenderer extends MobRenderer<MinionEntity, MinionRenderState,
     }
 
     @Override
-    public MinionRenderState createRenderState() {
-        return new MinionRenderState();
+    public void render(MinionEntity entity, float yaw, float partialTick, PoseStack poseStack, MultiBufferSource buffers, int light) {
+        this.model.partialTick = partialTick;
+        super.render(entity, yaw, partialTick, poseStack, buffers, light);
     }
 
     @Override
-    public void extractRenderState(MinionEntity entity, MinionRenderState state, float partialTick) {
-        super.extractRenderState(entity, state, partialTick);
-        state.tier = entity.getTier();
-        state.phase = entity.getPhase();
-        state.phaseTicks = entity.getPhaseTicks();
-        state.swing = entity.getSwing(partialTick);
+    public ResourceLocation getTextureLocation(MinionEntity entity) {
+        return TEXTURES[entity.getTier().ordinal()];
     }
 
     @Override
-    public ResourceLocation getTextureLocation(MinionRenderState state) {
-        return TEXTURES[state.tier.ordinal()];
-    }
-
-    @Override
-    protected void scale(MinionRenderState state, PoseStack poseStack) {
+    protected void scale(MinionEntity entity, PoseStack poseStack, float partialTick) {
         poseStack.scale(0.62f, 0.62f, 0.62f);
     }
 }

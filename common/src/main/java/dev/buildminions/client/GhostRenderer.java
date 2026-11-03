@@ -5,13 +5,11 @@ import java.util.List;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.buildminions.BuildMinions;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.ARGB;
+import net.minecraft.util.FastColor;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -27,29 +25,13 @@ public final class GhostRenderer {
 
     private GhostRenderer() {}
 
-    public static void render(PoseStack poseStack, SubmitNodeCollector collector, Vec3 camera) {
-        if (!PlacementController.active()) return;
-        List<PlacementController.Ghost> ghosts = PlacementController.ghosts();
-        BlockPos a = PlacementController.anchor();
-        int[] b = PlacementController.bounds();
-        float pulse = 0.55f + 0.15f * Mth.sin((System.currentTimeMillis() % 100_000L) / 240f);
-        int alpha = (int) (pulse * 255);
-        boolean locked = PlacementController.locked();
-        RenderType type = RenderTypes.entityTranslucent(TEXTURE);
-
-        poseStack.pushPose();
-        poseStack.translate(a.getX() - camera.x, a.getY() - camera.y, a.getZ() - camera.z);
-        collector.submitCustomGeometry(poseStack, type, (pose, buf) -> drawAll(pose, buf, ghosts, b, alpha, locked));
-        poseStack.popPose();
-    }
-
     /** Draws through the game's buffer source (used where no submit collector is available). */
     public static void renderImmediate(PoseStack poseStack, Vec3 camera) {
         if (!PlacementController.active()) return;
         var src = net.minecraft.client.Minecraft.getInstance().renderBuffers().bufferSource();
         BlockPos a = PlacementController.anchor();
         float pulse = 0.55f + 0.15f * Mth.sin((System.currentTimeMillis() % 100_000L) / 240f);
-        RenderType type = RenderTypes.entityTranslucent(TEXTURE);
+        RenderType type = RenderType.entityTranslucent(TEXTURE);
         poseStack.pushPose();
         poseStack.translate(a.getX() - camera.x, a.getY() - camera.y, a.getZ() - camera.z);
         drawAll(poseStack.last(), src.getBuffer(type), PlacementController.ghosts(), PlacementController.bounds(), (int) (pulse * 255), PlacementController.locked());
@@ -63,16 +45,16 @@ public final class GhostRenderer {
                 PlacementController.Ghost g = ghosts.get(i);
                 int color;
                 if (PlacementController.conflict(i)) {
-                    color = ARGB.color(Math.min(255, alpha + 40), 255, 70, 70);
+                    color = FastColor.ARGB32.color(Math.min(255, alpha + 40), 255, 70, 70);
                 } else {
-                    int r = ARGB.red(g.argb()), gg = ARGB.green(g.argb()), bl = ARGB.blue(g.argb());
-                    color = ARGB.color(alpha, (r * 3 + 90) / 4, (gg * 3 + 170) / 4, (bl * 3 + 255) / 4);
+                    int r = FastColor.ARGB32.red(g.argb()), gg = FastColor.ARGB32.green(g.argb()), bl = FastColor.ARGB32.blue(g.argb());
+                    color = FastColor.ARGB32.color(alpha, (r * 3 + 90) / 4, (gg * 3 + 170) / 4, (bl * 3 + 255) / 4);
                 }
                 box(pose, buf, g.x() + 0.02f, g.y() + 0.02f, g.z() + 0.02f, g.x() + 0.98f, g.y() + 0.98f, g.z() + 0.98f, color, false);
             }
-            int frame = locked ? ARGB.color(240, 120, 255, 160) : ARGB.color(240, 250, 214, 130);
+            int frame = locked ? FastColor.ARGB32.color(240, 120, 255, 160) : FastColor.ARGB32.color(240, 250, 214, 130);
             frame(pose, buf, b[0], b[1], b[2], b[3] + 1, b[4] + 1, b[5] + 1, 0.04f, frame);
-            box(pose, buf, -0.1f, -0.02f, -0.1f, 1.1f, 0.02f, 1.1f, ARGB.color(170, 250, 214, 130), true);
+            box(pose, buf, -0.1f, -0.02f, -0.1f, 1.1f, 0.02f, 1.1f, FastColor.ARGB32.color(170, 250, 214, 130), true);
         }
     }
 

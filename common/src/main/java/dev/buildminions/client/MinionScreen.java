@@ -17,7 +17,6 @@ import dev.buildminions.schematic.SchematicReader;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -154,7 +153,7 @@ public class MinionScreen extends Screen {
             case WORKSHOP -> drawWorkshop(g, mouseX, mouseY);
             case OVERVIEW -> drawOverview(g, mouseX, mouseY);
         }
-        if (pendingTooltip != null) g.setTooltipForNextFrame(font, pendingTooltip, mouseX, mouseY);
+        if (pendingTooltip != null) g.renderTooltip(font, pendingTooltip, mouseX, mouseY);
     }
 
     private void drawTabs(GuiGraphics g, int mx, int my) {
@@ -518,18 +517,18 @@ public class MinionScreen extends Screen {
     // ================================================================= input
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) { 
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) { 
             for (int i = hits.size() - 1; i >= 0; i--) {
                 Hit h = hits.get(i);
-                if (Ui.inside(event.x(), event.y(), h.x(), h.y(), h.w(), h.h())) {
+                if (Ui.inside(mouseX, mouseY, h.x(), h.y(), h.w(), h.h())) {
                     minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
                     h.action().run();
                     return true;
                 }
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override

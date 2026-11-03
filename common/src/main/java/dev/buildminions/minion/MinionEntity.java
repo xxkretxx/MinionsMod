@@ -57,8 +57,6 @@ import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -425,11 +423,10 @@ public class MinionEntity extends Mob {
     private void resolvePendingQueue(ServerLevel level) {
         if (pendingQueueTag == null) return;
         for (int i = 0; i < pendingQueueTag.size(); i++) {
-            CompoundTag t = pendingQueueTag.getCompoundOrEmpty(i);
+            CompoundTag t = pendingQueueTag.getCompound(i);
             try {
-                ResourceKey<Recipe<?>> key = ResourceKey.create(Registries.RECIPE, ResourceLocation.parse(t.getStringOr("Recipe", "")));
-                CraftPlanner.Option o = CraftPlanner.byId(level.getServer(), key);
-                if (o != null) craftQueue.add(new QueuedJob(o, t.getIntOr("Left", 0), t.getIntOr("Total", 1)));
+                CraftPlanner.Option o = CraftPlanner.byId(level.getServer(), ResourceLocation.parse(t.getString("Recipe")));
+                if (o != null) craftQueue.add(new QueuedJob(o, t.getInt("Left"), Math.max(1, t.getInt("Total"))));
             } catch (Exception ignored) {}
         }
         pendingQueueTag = null;
@@ -699,30 +696,28 @@ public class MinionEntity extends Mob {
     // ================================================================= saving
 
     @Override
-    protected void addAdditionalSaveData(ValueOutput out) {
+    public void addAdditionalSaveData(CompoundTag out) {
         super.addAdditionalSaveData(out);
         out.putInt("Tier", getTier().ordinal());
         out.putInt("Phase", getPhase().ordinal());
         out.putInt("Used", getUsed());
         out.putInt("Upgrade", getUpgrade());
         out.putBoolean("CreativeJob", creativeJob);
-        if (owner != null) out.store("Owner", UUIDUtil.CODEC, owner);
-        if (schematic != null) out.store("Blueprint", CompoundTag.CODEC, schematic.save());
-        out.store("Stored", STORED_CODEC, new LinkedHashMap<>(stored));
+        if (owner != null) out.putUUID("Owner", owner);
+        if (schematic != null) out.put("Blueprint", schematic.save());
+        STORED_CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, new LinkedHashMap<>(stored)).result().ifPresent(t -> out.put("Stored", t));
         ListTag q = new ListTag();
         for (QueuedJob j : craftQueue) {
             CompoundTag t = new CompoundTag();
-            t.putString("Recipe", j.option.id().location().toString());
+            t.putString("Recipe", j.option.id().toString());
             t.putInt("Left", j.left);
             t.putInt("Total", j.total);
             q.add(t);
         }
         if (pendingQueueTag != null) q.addAll(pendingQueueTag);
-        CompoundTag wrap = new CompoundTag();
-        wrap.put("Jobs", q);
-        out.store("CraftQueue", CompoundTag.CODEC, wrap);
+        out.put("CraftQueue", q);
         if (anchor != null) {
-            out.store("Anchor", BlockPos.CODEC, anchor);
+            out.putIntArray("Anchor", new int[]{anchor.getX(), anchor.getY(), anchor.getZ()});
             out.putInt("Rotation", rotation.ordinal());
             out.putInt("Mirror", mirror.ordinal());
             out.putInt("QueueIndex", queueIndex);
@@ -730,26 +725,29 @@ public class MinionEntity extends Mob {
     }
 
     @Override
-    protected void readAdditionalSaveData(ValueInput in) {
+    public void readAdditionalSaveData(CompoundTag in) {
         super.readAdditionalSaveData(in);
-        this.entityData.set(DATA_TIER, in.getIntOr("Tier", 0));
-        this.entityData.set(DATA_USED, in.getIntOr("Used", 0));
-        this.entityData.set(DATA_UPGRADE, in.getIntOr("Upgrade", 0));
-        this.creativeJob = in.getBooleanOr("CreativeJob", false);
-        this.owner = in.read("Owner", UUIDUtil.CODEC).orElse(null);
-        this.schematic = in.read("Blueprint", CompoundTag.CODEC).map(tag -> {
-            try { return Schematic.load(tag); } catch (Exception e) { return null; }
-        }).orElse(null);
+        this.entityData.set(DATA_TIER, in.getInt("Tier"));
+        this.entityData.set(DATA_USED, in.getInt("Used"));
+        this.entityData.set(DATA_UPGRADE, in.getInt("Upgrade"));
+        this.creativeJob = in.getBoolean("CreativeJob");
+        this.owner = in.hasUUID("Owner") ? in.getUUID("Owner") : null;
+        this.schematic = null;
+        if (in.contains("Blueprint")) {
+            try { this.schematic = Schematic.load(in.getCompound("Blueprint")); } catch (Exception ignored) {}
+        }
         stored.clear();
-        in.read("Stored", STORED_CODEC).ifPresent(stored::putAll);
+        if (in.contains("Stored")) STORED_CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, in.get("Stored")).result().ifPresent(stored::putAll);
         craftQueue.clear();
-        pendingQueueTag = in.read("CraftQueue", CompoundTag.CODEC).map(t -> t.getListOrEmpty("Jobs")).filter(l -> !l.isEmpty()).orElse(null);
-        this.anchor = in.read("Anchor", BlockPos.CODEC).orElse(null);
-        this.rotation = Rotation.values()[Math.floorMod(in.getIntOr("Rotation", 0), 4)];
-        this.mirror = Mirror.values()[Math.floorMod(in.getIntOr("Mirror", 0), 3)];
-        this.queueIndex = in.getIntOr("QueueIndex", 0);
-        MinionPhase phase = MinionPhase.byId(in.getIntOr("Phase", 0));
-        if (phase == MinionPhase.AWAITING_PLACEMENT) phase = MinionPhase.COLLECTING; // hologram is client-side only
+        ListTag q = in.getList("CraftQueue", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        pendingQueueTag = q.isEmpty() ? null : q;
+        int[] an = in.getIntArray("Anchor");
+        this.anchor = an.length == 3 ? new BlockPos(an[0], an[1], an[2]) : null;
+        this.rotation = Rotation.values()[Math.floorMod(in.getInt("Rotation"), 4)];
+        this.mirror = Mirror.values()[Math.floorMod(in.getInt("Mirror"), 3)];
+        this.queueIndex = in.getInt("QueueIndex");
+        MinionPhase phase = MinionPhase.byId(in.getInt("Phase"));
+        if (phase == MinionPhase.AWAITING_PLACEMENT) phase = MinionPhase.COLLECTING;
         if (phase == MinionPhase.BUILDING && (anchor == null || schematic == null)) phase = schematic == null ? MinionPhase.IDLE : MinionPhase.COLLECTING;
         setPhase(phase);
     }

@@ -13,7 +13,7 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
-import net.minecraftforge.eventbus.api.bus.BusGroup;
+import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLEnvironment;
@@ -32,7 +32,7 @@ public class BuildMinionsForge {
     public static net.minecraftforge.network.Channel<CustomPacketPayload> CHANNEL;
 
     public BuildMinionsForge(FMLJavaModLoadingContext context) {
-        BusGroup modBus = context.getModBusGroup();
+        IEventBus modBus = context.getModEventBus();
 
         RegistryObject<EntityType<MinionEntity>> minion = ENTITIES.register("minion", ModContent::createMinionType);
         ModContent.MINION = minion::get;
@@ -53,7 +53,7 @@ public class BuildMinionsForge {
         ITEMS.register(modBus);
         TABS.register(modBus);
 
-        EntityAttributeCreationEvent.getBus(modBus).addListener(e -> e.put(ModContent.MINION.get(), MinionEntity.createAttributes().build()));
+        modBus.addListener((EntityAttributeCreationEvent e) -> e.put(ModContent.MINION.get(), MinionEntity.createAttributes().build()));
 
         var play = ChannelBuilder.named(BuildMinions.id("main")).networkProtocolVersion(1).payloadChannel().play();
         var clientbound = play.clientbound();

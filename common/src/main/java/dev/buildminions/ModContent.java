@@ -34,13 +34,13 @@ public final class ModContent {
 
     public static net.minecraft.world.level.block.Block createWorkstation() {
         return new dev.buildminions.workshop.WorkstationBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties.of()
-                .setId(WORKSTATION_KEY).strength(2.5f).noOcclusion()
+                .strength(2.5f).noOcclusion()
                 .sound(net.minecraft.world.level.block.SoundType.WOOD)
                 .lightLevel(s -> s.getValue(dev.buildminions.workshop.WorkstationBlock.LIT) ? 11 : 0));
     }
 
     public static Item createWorkstationItem(net.minecraft.world.level.block.Block block) {
-        return new net.minecraft.world.item.BlockItem(block, new Item.Properties().setId(itemKey("minion_workstation")).useBlockDescriptionPrefix());
+        return new net.minecraft.world.item.BlockItem(block, new Item.Properties());
     }
 
     private ModContent() {}
@@ -55,18 +55,17 @@ public final class ModContent {
                 .eyeHeight(0.85f)
                 .clientTrackingRange(10)
                 .fireImmune()
-                .build(MINION_KEY);
+                .build("minion");
     }
 
     public static Item createMinionItem(MinionTier tier) {
         return new MinionItem(tier, new Item.Properties()
-                .setId(itemKey(tier.itemName()))
                 .durability(tier.maxBlocks)
                 .rarity(tier == MinionTier.DIAMOND ? Rarity.EPIC : tier == MinionTier.GOLD ? Rarity.RARE : Rarity.UNCOMMON));
     }
 
     public static Item createCore() {
-        return new Item(new Item.Properties().setId(itemKey("minion_core")).rarity(Rarity.UNCOMMON));
+        return new Item(new Item.Properties().rarity(Rarity.UNCOMMON));
     }
 
     /** Fills a creative tab builder (vanilla, NeoForge and Fabric builders all extend CreativeModeTab.Builder). */

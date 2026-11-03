@@ -78,31 +78,31 @@ public final class SchematicReader {
     // ------------------------------------------------------------------ Litematica
 
     private static Schematic litematic(CompoundTag root, String fallbackName) throws IOException {
-        int dv = root.getIntOr("MinecraftDataVersion", 0);
-        CompoundTag meta = root.getCompoundOrEmpty("Metadata");
-        String name = meta.getStringOr("Name", fallbackName);
-        CompoundTag regions = root.getCompoundOrEmpty("Regions");
+        int dv = root.getInt("MinecraftDataVersion");
+        CompoundTag meta = root.getCompound("Metadata");
+        String name = (meta.getString("Name").isEmpty() ? fallbackName : meta.getString("Name"));
+        CompoundTag regions = root.getCompound("Regions");
         if (regions.isEmpty()) throw new IOException("No regions in litematic");
 
         record Region(int minX, int minY, int minZ, int sx, int sy, int sz, List<BlockState> palette, long[] data, int bits) {}
         List<Region> list = new ArrayList<>();
         int gMinX = Integer.MAX_VALUE, gMinY = Integer.MAX_VALUE, gMinZ = Integer.MAX_VALUE;
         int gMaxX = Integer.MIN_VALUE, gMaxY = Integer.MIN_VALUE, gMaxZ = Integer.MIN_VALUE;
-        for (String key : regions.keySet()) {
-            CompoundTag r = regions.getCompoundOrEmpty(key);
-            CompoundTag pos = r.getCompoundOrEmpty("Position");
-            CompoundTag size = r.getCompoundOrEmpty("Size");
-            int px = pos.getIntOr("x", 0), py = pos.getIntOr("y", 0), pz = pos.getIntOr("z", 0);
-            int sx = size.getIntOr("x", 0), sy = size.getIntOr("y", 0), sz = size.getIntOr("z", 0);
+        for (String key : regions.getAllKeys()) {
+            CompoundTag r = regions.getCompound(key);
+            CompoundTag pos = r.getCompound("Position");
+            CompoundTag size = r.getCompound("Size");
+            int px = pos.getInt("x"), py = pos.getInt("y"), pz = pos.getInt("z");
+            int sx = size.getInt("x"), sy = size.getInt("y"), sz = size.getInt("z");
             int minX = px + (sx < 0 ? sx + 1 : 0), minY = py + (sy < 0 ? sy + 1 : 0), minZ = pz + (sz < 0 ? sz + 1 : 0);
             sx = Math.abs(sx); sy = Math.abs(sy); sz = Math.abs(sz);
             if (sx == 0 || sy == 0 || sz == 0) continue;
-            ListTag pal = r.getListOrEmpty("BlockStatePalette");
+            ListTag pal = r.getList("BlockStatePalette", net.minecraft.nbt.Tag.TAG_COMPOUND);
             List<BlockState> palette = new ArrayList<>();
-            for (int i = 0; i < pal.size(); i++) palette.add(readState(pal.getCompoundOrEmpty(i), dv));
+            for (int i = 0; i < pal.size(); i++) palette.add(readState(pal.getCompound(i), dv));
             if (palette.isEmpty()) palette.add(Blocks.AIR.defaultBlockState());
             int bits = Math.max(2, 32 - Integer.numberOfLeadingZeros(palette.size() - 1));
-            long[] data = r.getLongArray("BlockStates").orElse(new long[0]);
+            long[] data = r.getLongArray("BlockStates");
             list.add(new Region(minX, minY, minZ, sx, sy, sz, palette, data, bits));
             gMinX = Math.min(gMinX, minX); gMinY = Math.min(gMinY, minY); gMinZ = Math.min(gMinZ, minZ);
             gMaxX = Math.max(gMaxX, minX + sx); gMaxY = Math.max(gMaxY, minY + sy); gMaxZ = Math.max(gMaxZ, minZ + sz);
@@ -140,26 +140,26 @@ public final class SchematicReader {
     // ------------------------------------------------------------------ Sponge (.schem)
 
     private static Schematic sponge(CompoundTag root, String name) throws IOException {
-        CompoundTag s = root.contains("Schematic") ? root.getCompoundOrEmpty("Schematic") : root;
-        int version = s.getIntOr("Version", 2);
-        int dv = s.getIntOr("DataVersion", root.getIntOr("DataVersion", 0));
-        int w = s.getShortOr("Width", (short) 0) & 0xFFFF;
-        int h = s.getShortOr("Height", (short) 0) & 0xFFFF;
-        int l = s.getShortOr("Length", (short) 0) & 0xFFFF;
+        CompoundTag s = root.contains("Schematic") ? root.getCompound("Schematic") : root;
+        int version = s.contains("Version") ? s.getInt("Version") : 2;
+        int dv = s.contains("DataVersion") ? s.getInt("DataVersion") : root.getInt("DataVersion");
+        int w = s.getShort("Width") & 0xFFFF;
+        int h = s.getShort("Height") & 0xFFFF;
+        int l = s.getShort("Length") & 0xFFFF;
         checkSize(w, h, l);
         CompoundTag paletteTag;
         byte[] data;
         if (version >= 3) {
-            CompoundTag blocks = s.getCompoundOrEmpty("Blocks");
-            paletteTag = blocks.getCompoundOrEmpty("Palette");
-            data = blocks.getByteArray("Data").orElse(new byte[0]);
+            CompoundTag blocks = s.getCompound("Blocks");
+            paletteTag = blocks.getCompound("Palette");
+            data = blocks.getByteArray("Data");
         } else {
-            paletteTag = s.getCompoundOrEmpty("Palette");
-            data = s.getByteArray("BlockData").orElse(new byte[0]);
+            paletteTag = s.getCompound("Palette");
+            data = s.getByteArray("BlockData");
         }
         Map<Integer, BlockState> palette = new HashMap<>();
-        for (String key : paletteTag.keySet()) {
-            palette.put(paletteTag.getIntOr(key, 0), readState(stateStringToTag(key), dv));
+        for (String key : paletteTag.getAllKeys()) {
+            palette.put(paletteTag.getInt(key), readState(stateStringToTag(key), dv));
         }
         Builder b = new Builder(w, h, l);
         int idx = 0, i = 0;
@@ -185,25 +185,25 @@ public final class SchematicReader {
     // ------------------------------------------------------------------ Vanilla structure (.nbt)
 
     private static Schematic vanilla(CompoundTag root, String name) throws IOException {
-        ListTag size = root.getListOrEmpty("size");
-        int sx = size.getIntOr(0, 0), sy = size.getIntOr(1, 0), sz = size.getIntOr(2, 0);
+        ListTag size = root.getList("size", net.minecraft.nbt.Tag.TAG_INT);
+        int sx = size.getInt(0), sy = size.getInt(1), sz = size.getInt(2);
         checkSize(sx, sy, sz);
-        int dv = root.getIntOr("DataVersion", 0);
-        ListTag pal = root.getListOrEmpty("palette");
+        int dv = root.getInt("DataVersion");
+        ListTag pal = root.getList("palette", net.minecraft.nbt.Tag.TAG_COMPOUND);
         if (pal.isEmpty()) {
-            ListTag palettes = root.getListOrEmpty("palettes");
-            if (!palettes.isEmpty()) pal = palettes.getListOrEmpty(0);
+            ListTag palettes = root.getList("palettes", net.minecraft.nbt.Tag.TAG_LIST);
+            if (!palettes.isEmpty()) pal = palettes.getList(0);
         }
         List<BlockState> palette = new ArrayList<>();
-        for (int i = 0; i < pal.size(); i++) palette.add(readState(pal.getCompoundOrEmpty(i), dv));
+        for (int i = 0; i < pal.size(); i++) palette.add(readState(pal.getCompound(i), dv));
         Builder b = new Builder(sx, sy, sz);
-        ListTag blocks = root.getListOrEmpty("blocks");
+        ListTag blocks = root.getList("blocks", net.minecraft.nbt.Tag.TAG_COMPOUND);
         for (int i = 0; i < blocks.size(); i++) {
-            CompoundTag bt = blocks.getCompoundOrEmpty(i);
-            ListTag pos = bt.getListOrEmpty("pos");
-            int state = bt.getIntOr("state", 0);
+            CompoundTag bt = blocks.getCompound(i);
+            ListTag pos = bt.getList("pos", net.minecraft.nbt.Tag.TAG_INT);
+            int state = bt.getInt("state");
             if (state < 0 || state >= palette.size()) continue;
-            b.set(pos.getIntOr(0, 0), pos.getIntOr(1, 0), pos.getIntOr(2, 0), palette.get(state));
+            b.set(pos.getInt(0), pos.getInt(1), pos.getInt(2), palette.get(state));
         }
         return b.build(name);
     }
@@ -233,15 +233,15 @@ public final class SchematicReader {
     /** {Name:..., Properties:{...}} -> "name[k=v,...]" */
     static String tagToStateString(CompoundTag tag) {
         // 26.3 writes {id, properties}; older versions and schematic files use {Name, Properties}
-        String name = tag.contains("id") ? tag.getStringOr("id", "minecraft:air") : tag.getStringOr("Name", "minecraft:air");
+        String name = tag.contains("id") ? tag.getString("id") : tag.getString("Name");
         StringBuilder sb = new StringBuilder(name);
-        CompoundTag props = tag.contains("properties") ? tag.getCompoundOrEmpty("properties") : tag.getCompoundOrEmpty("Properties");
+        CompoundTag props = tag.contains("properties") ? tag.getCompound("properties") : tag.getCompound("Properties");
         if (!props.isEmpty()) {
             sb.append('[');
             boolean first = true;
-            for (String k : props.keySet()) {
+            for (String k : props.getAllKeys()) {
                 if (!first) sb.append(',');
-                sb.append(k).append('=').append(props.getStringOr(k, ""));
+                sb.append(k).append('=').append(props.getString(k));
                 first = false;
             }
             sb.append(']');

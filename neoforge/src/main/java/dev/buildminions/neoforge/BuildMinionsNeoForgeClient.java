@@ -19,14 +19,14 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.common.NeoForge;
 
 @Mod(value = BuildMinions.MOD_ID, dist = Dist.CLIENT)
 public class BuildMinionsNeoForgeClient {
     public BuildMinionsNeoForgeClient(IEventBus modBus) {
         BuildMinionsClient.init();
-        Services.toServer = ClientPacketDistributor::sendToServer;
+        Services.toServer = p -> PacketDistributor.sendToServer(p);
 
         modBus.addListener(EntityRenderersEvent.RegisterRenderers.class,
                 e -> e.registerEntityRenderer(ModContent.MINION.get(), MinionRenderer::new));
@@ -37,7 +37,9 @@ public class BuildMinionsNeoForgeClient {
 
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> PlacementController.tick(Minecraft.getInstance()));
         // Hologram. NeoForge exposes the level submit phase through SubmitCustomGeometryEvent.
-        NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterEntities.class, e ->
-                GhostRenderer.renderImmediate(e.getPoseStack(), e.getLevelRenderState().cameraRenderState.pos));
+        NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.class, e -> {
+            if (e.getStage() == RenderLevelStageEvent.Stage.AFTER_ENTITIES)
+                GhostRenderer.renderImmediate(e.getPoseStack(), e.getCamera().getPosition());
+        });
     }
 }

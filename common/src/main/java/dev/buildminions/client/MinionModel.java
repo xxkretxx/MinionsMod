@@ -1,7 +1,8 @@
 package dev.buildminions.client;
 
 import dev.buildminions.minion.MinionEntity;
-import net.minecraft.client.model.EntityModel;
+import dev.buildminions.minion.MinionPhase;
+import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
@@ -10,15 +11,13 @@ import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.util.Mth;
 
-/**
- * The Build Minion model (64x64 texture). Generated from tools/model_def.py – the same data
- * that produced the Blockbench files in /model.
- */
-public class MinionModel extends EntityModel<MinionRenderState> {
-    private final ModelPart body, head, antenna, rightArm, leftArm, hammer, rightLeg, leftLeg;
+/** The Build Minion model (64x64 texture), 1.21.1 edition (entity-based animation). */
+public class MinionModel extends HierarchicalModel<MinionEntity> {
+    private final ModelPart root, body, head, antenna, rightArm, leftArm, hammer, rightLeg, leftLeg;
+    public float partialTick;
 
     public MinionModel(ModelPart root) {
-        super(root);
+        this.root = root;
         this.body = root.getChild("body");
         this.head = body.getChild("head");
         this.antenna = head.getChild("antenna");
@@ -28,6 +27,9 @@ public class MinionModel extends EntityModel<MinionRenderState> {
         this.rightLeg = root.getChild("right_leg");
         this.leftLeg = root.getChild("left_leg");
     }
+
+    @Override
+    public ModelPart root() { return root; }
 
     public static LayerDefinition createBodyLayer() {
         MeshDefinition mesh = new MeshDefinition();
@@ -52,21 +54,18 @@ public class MinionModel extends EntityModel<MinionRenderState> {
     }
 
     @Override
-    public void setupAnim(MinionRenderState s) {
-        super.setupAnim(s); // resets the pose
-        float age = s.ageInTicks;
-        float walkPos = s.walkAnimationPos, walkSpeed = Math.min(1f, s.walkAnimationSpeed);
+    public void setupAnim(MinionEntity e, float walkPos, float walkSpeed, float age, float netHeadYaw, float headPitch) {
+        root.getAllParts().forEach(ModelPart::resetPose);
+        walkSpeed = Math.min(1f, walkSpeed);
+        MinionPhase phase = e.getPhase();
+        int phaseTicks = e.getPhaseTicks();
+        float swing = e.getSwing(partialTick);
 
-        // head follows the look direction, antenna wobbles
-        head.yRot = s.yRot * Mth.DEG_TO_RAD;
-        head.xRot = s.xRot * Mth.DEG_TO_RAD * 0.7f;
+        head.yRot = netHeadYaw * Mth.DEG_TO_RAD;
+        head.xRot = headPitch * Mth.DEG_TO_RAD * 0.7f;
         antenna.zRot = Mth.sin(age * 0.15f) * 0.18f;
         antenna.xRot = Mth.cos(age * 0.11f) * 0.08f;
-
-        // idle breathing bob
         body.y += Mth.sin(age * 0.1f) * 0.35f;
-
-        // walking
         rightLeg.xRot = Mth.cos(walkPos * 0.6662f) * 1.3f * walkSpeed;
         leftLeg.xRot = Mth.cos(walkPos * 0.6662f + Mth.PI) * 1.3f * walkSpeed;
         leftArm.xRot = Mth.cos(walkPos * 0.6662f) * 0.9f * walkSpeed;
@@ -74,17 +73,15 @@ public class MinionModel extends EntityModel<MinionRenderState> {
         leftArm.zRot = -0.06f - Mth.sin(age * 0.067f) * 0.04f;
         rightArm.zRot = 0.06f + Mth.sin(age * 0.067f) * 0.04f;
 
-        switch (s.phase) {
+        switch (phase) {
             case BUILDING, CRAFTING -> {
-                // hovering: legs dangle, left arm held out for balance, hammer ready
                 rightLeg.xRot = 0.25f + Mth.sin(age * 0.2f) * 0.15f;
                 leftLeg.xRot = 0.15f - Mth.sin(age * 0.2f) * 0.15f;
                 leftArm.xRot = -0.35f;
                 leftArm.zRot = -0.45f - Mth.sin(age * 0.3f) * 0.08f;
                 rightArm.xRot = -1.2f;
-                if (s.swing > 0f) {
-                    // raise -> strike
-                    float t = 1f - s.swing;
+                if (swing > 0f) {
+                    float t = 1f - swing;
                     float strike = t < 0.4f ? -t / 0.4f : -1f + (t - 0.4f) / 0.6f * 2.4f;
                     rightArm.xRot = -1.2f + strike * 1.3f;
                     head.xRot += 0.25f * Mth.sin(t * Mth.PI);
@@ -92,13 +89,11 @@ public class MinionModel extends EntityModel<MinionRenderState> {
                 }
             }
             case AWAITING_PLACEMENT -> {
-                // pointing at the hologram, impatient tapping
                 leftArm.xRot = -1.5f;
                 rightLeg.xRot = Math.max(0, Mth.sin(age * 0.5f)) * -0.3f;
             }
             case DONE -> {
-                if (s.phaseTicks < 60) {
-                    // celebration: both arms up, little jump
+                if (phaseTicks < 60) {
                     rightArm.xRot = -2.8f + Mth.sin(age * 0.8f) * 0.3f;
                     leftArm.xRot = -2.8f - Mth.sin(age * 0.8f) * 0.3f;
                     body.y -= Math.abs(Mth.sin(age * 0.4f)) * 1.5f;
@@ -106,11 +101,11 @@ public class MinionModel extends EntityModel<MinionRenderState> {
                 }
             }
             case BREAKING -> {
-                float p = Math.min(1f, s.phaseTicks / (float) MinionEntity.BREAK_DURATION);
+                float p = Math.min(1f, phaseTicks / (float) MinionEntity.BREAK_DURATION);
                 float shake = Mth.sin(age * 2.6f) * 0.18f * p;
                 body.zRot = shake;
                 head.zRot = -shake * 1.5f;
-                head.y -= p * p * 3f;          // head pops off at the end
+                head.y -= p * p * 3f;
                 antenna.y -= p * p * 4f;
                 rightArm.zRot = 0.6f * p;
                 leftArm.zRot = -0.6f * p;

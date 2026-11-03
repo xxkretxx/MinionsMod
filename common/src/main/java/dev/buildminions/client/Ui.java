@@ -3,7 +3,6 @@ package dev.buildminions.client;
 import dev.buildminions.BuildMinions;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -30,7 +29,7 @@ public final class Ui {
     }
 
     public static void sprite(GuiGraphics g, ResourceLocation id, int x, int y, int w, int h) {
-        g.blitSprite(RenderPipelines.GUI_TEXTURED, id, x, y, w, h);
+        g.blitSprite(id, x, y, w, h);
     }
 
     public static boolean inside(double mx, double my, int x, int y, int w, int h) {

@@ -14,11 +14,11 @@ public final class BlockStates {
 
     public static BlockState parse(String s) {
         try {
-            return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, s, false).blockState();
+            return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK.asLookup(), s, false).blockState();
         } catch (Exception e) {
             int br = s.indexOf('[');
             if (br > 0) { // unknown property – keep the block, drop the bad properties
-                try { return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, s.substring(0, br), false).blockState(); }
+                try { return BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK.asLookup(), s.substring(0, br), false).blockState(); }
                 catch (Exception ignored) {}
             }
             return Blocks.AIR.defaultBlockState();

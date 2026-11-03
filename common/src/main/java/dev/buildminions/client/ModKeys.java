@@ -8,7 +8,7 @@ import net.minecraft.client.KeyMapping;
 /** Key bindings used while positioning the hologram. Registered by each loader. */
 public final class ModKeys {
     private static KeyMapping key(String name, int scancode) {
-        return new KeyMapping("key.buildminions." + name, InputConstants.Type.KEYSYM, scancode, KeyMapping.Category.MISC);
+        return new KeyMapping("key.buildminions." + name, InputConstants.Type.KEYSYM, scancode, "key.categories.misc");
     }
 
     public static final KeyMapping ROTATE = key("rotate", InputConstants.KEY_R);

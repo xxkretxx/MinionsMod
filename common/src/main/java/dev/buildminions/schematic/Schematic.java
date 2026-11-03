@@ -165,18 +165,18 @@ public final class Schematic {
     }
 
     public static Schematic load(CompoundTag tag) {
-        int[] size = tag.getIntArray("Size").orElse(new int[3]);
+        int[] size = tag.getIntArray("Size");
         if (size.length != 3) throw new IllegalArgumentException("Bad size");
         for (int s : size) if (s <= 0 || s > MAX_DIMENSION) throw new IllegalArgumentException("Blueprint too large");
-        ListTag pal = tag.getListOrEmpty("Palette");
+        ListTag pal = tag.getList("Palette", net.minecraft.nbt.Tag.TAG_STRING);
         List<BlockState> palette = new ArrayList<>();
         for (int i = 0; i < pal.size(); i++) {
-            palette.add(BlockStates.parse(pal.getStringOr(i, "minecraft:air")));
+            palette.add(BlockStates.parse(pal.getString(i)));
         }
         if (palette.isEmpty()) palette.add(Blocks.AIR.defaultBlockState());
-        int[] blocks = tag.getIntArray("Blocks").orElse(new int[0]);
+        int[] blocks = tag.getIntArray("Blocks");
         if (blocks.length != size[0] * size[1] * size[2]) throw new IllegalArgumentException("Block data size mismatch");
         for (int b : blocks) if (b < 0 || b >= palette.size()) throw new IllegalArgumentException("Bad palette index");
-        return new Schematic(tag.getStringOr("Name", "Blueprint"), size[0], size[1], size[2], palette, blocks);
+        return new Schematic((tag.getString("Name").isEmpty() ? "Blueprint" : tag.getString("Name")), size[0], size[1], size[2], palette, blocks);
     }
 }
