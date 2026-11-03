@@ -532,7 +532,7 @@ public class MinionScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         int dir = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0;
         if (tab == Tab.BLUEPRINTS) filePage = Math.max(0, filePage + dir);
         if (tab == Tab.MATERIALS) matPage = Math.max(0, matPage + dir);

@@ -285,7 +285,7 @@ public class MinionEntity extends Mob {
         }
         if (t < BREAK_DURATION) return;
         level.playSound(null, blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.NEUTRAL, 1.2f, 0.8f);
-        level.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL, 0.4f, 1.8f);
+        level.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE, SoundSource.NEUTRAL, 0.4f, 1.8f);
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getTier().particleBlock().defaultBlockState()), getX(), getY() + 0.6, getZ(), 60, .3, .4, .3, .15);
         level.sendParticles(ParticleTypes.POOF, getX(), getY() + 0.6, getZ(), 15, .3, .3, .3, .05);
         dropStored(level);
@@ -429,7 +429,7 @@ public class MinionEntity extends Mob {
         for (int i = 0; i < pendingQueueTag.size(); i++) {
             CompoundTag t = pendingQueueTag.getCompound(i);
             try {
-                CraftPlanner.Option o = CraftPlanner.byId(level.getServer(), ResourceLocation.parse(t.getString("Recipe")));
+                CraftPlanner.Option o = CraftPlanner.byId(level.getServer(), new ResourceLocation(t.getString("Recipe")));
                 if (o != null) craftQueue.add(new QueuedJob(o, t.getInt("Left"), Math.max(1, t.getInt("Total"))));
             } catch (Exception ignored) {}
         }
