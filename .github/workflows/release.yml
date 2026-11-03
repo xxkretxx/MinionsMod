@@ -1,0 +1,64 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { branch: main,    mc: '26.3',    java: 25 }
+          - { branch: '1.21.11', mc: '1.21.11', java: 21 }
+          - { branch: '1.21.1',  mc: '1.21.1',  java: 21 }
+          - { branch: '1.20.1',  mc: '1.20.1',  java: 17 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ matrix.branch }}' }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '${{ matrix.java }}' }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew && ./gradlew build
+      - name: collect jars
+        run: |
+          mkdir -p out
+          for loader in fabric forge neoforge; do
+            [ -d "$loader/build/libs" ] || continue
+            j=$(ls "$loader"/build/libs/*.jar | grep -vE -- '-(sources|javadoc|dev|all|slim)\.jar$' | head -1)
+            [ -n "$j" ] && cp "$j" "out/buildminions-${GITHUB_REF_NAME#v}-mc${{ matrix.mc }}-$loader.jar"
+          done
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with: { name: 'jars-${{ matrix.mc }}', path: out/*.jar }
+  bundle:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: jars, merge-multiple: true }
+      - run: |
+          ls -la jars
+          cd jars && zip -9 ../BuildMinions-all-versions.zip *.jar
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: 'Build Minions ${{ github.ref_name }}'
+          tag_name: '${{ github.ref_name }}'
+          files: |
+            BuildMinions-all-versions.zip
+            jars/*.jar
+          body: |
+            Build Minions – all versions in one place.
+            **BuildMinions-all-versions.zip** contains every jar below.
+
+            | Minecraft | Loaders |
+            |---|---|
+            | 26.3 | Fabric (Quilt), NeoForge |
+            | 1.21.11 | Fabric (Quilt), NeoForge, Forge |
+            | 1.21.1 | Fabric (Quilt), NeoForge, Forge |
+            | 1.20.1 | Fabric (Quilt), Forge |
+
+            Fabric versions need Fabric API.
