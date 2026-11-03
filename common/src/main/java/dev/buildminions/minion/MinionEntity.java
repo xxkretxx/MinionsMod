@@ -280,7 +280,7 @@ public class MinionEntity extends Mob {
             level.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + 0.8, getZ(), 3, .3, .3, .3, 0.2);
         }
         if (t < BREAK_DURATION) return;
-        level.playSound(null, blockPosition(), SoundEvents.ITEM_BREAK.value(), SoundSource.NEUTRAL, 1.2f, 0.8f);
+        level.playSound(null, blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.NEUTRAL, 1.2f, 0.8f);
         level.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL, 0.4f, 1.8f);
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getTier().particleBlock().defaultBlockState()), getX(), getY() + 0.6, getZ(), 60, .3, .4, .3, .15);
         level.sendParticles(ParticleTypes.POOF, getX(), getY() + 0.6, getZ(), 15, .3, .3, .3, .05);
